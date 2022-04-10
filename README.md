@@ -503,13 +503,54 @@ class Main { // usual Haxe class
 }
 ```
 
+### Operator Precedence
+
+Due to Haxe's bizarre operator precedence, compile-time constants **may take unexpected values**.
+
+In Haxe, priority of bitwise operators `&`, `|`, and `^` is **all the same**, which means the following two statements are the same in Haxe.
+
+```hx
+1 & 2 | 3 ^ 4 & 5;
+((((1 & 2) | 3) ^ 4) & 5);
+```
+
+In most languages, however, `&` > `^` > `|` holds in terms of priority. So the following two statements are the same in those languages.
+
+```cpp
+1 & 2 | 3 ^ 4 & 5;
+((1 & 2) | (3 ^ (4 & 5)));
+```
+
+This is also true for GLSL. Since compiled source code of an HGSL shader will be compiled again by a GLSL compiler, precedence of operators will be the same as that of GLSL, so no worries.
+
+When it comes to compile-time constants, however, they will be affected by Haxe's operator precedence because of **constant folding** done by HGSL.
+
+```hx
+final A = 1, B = 2, C = 3, D = 4, E = 5;
+final a = A & B | C ^ D & E; // this will be folded
+var   b = A & B | C ^ D & E; // this will not be folded
+a == b; // false at runtime, because of the different operator precedence
+        //   between Haxe and GLSL
+```
+
+To avoid this strange behavior, **always use parentheses when you use bitwise operators**.
+
+```hx
+final A = 1, B = 2, C = 3, D = 4, E = 5;
+final a = (A & B) | (C ^ (D & E)); // this will be folded
+var   b = (A & B) | (C ^ (D & E)); // this will not be folded
+a == b; // true, yes they are the same!
+```
+
+To be honest, this can be technically avoided by reconstructing ASTs, but it's not done anyways. I may be implement that in future, or not.
+
 ## Examples
 
 Can be found in [`examples`](./examples/) directory.
 
 ## Known issues
 
-HGSL heavily uses Haxe's build macro, and it sometimes causes strange behaviors, including
+HGSL heavily uses Haxe's build macro, and it sometimes causes some strange behavior, including
 
 - Stack overflow on compilation
 - Completions getting heavier and heavier
