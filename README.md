@@ -218,8 +218,8 @@ class Struct extends ShaderStruct {
 	var floats:Array<Float, 8>;
 	var vec3s:Array<Vec3, 4>;
 	var mat4s:Array<Mat4, Module.LENGTH>;  // you can refer external values
-	// var ints:Array<Int, Module.length>; // ERROR! fields start with
-	                                       // lower-case alphabets cannot be used
+	// var ints:Array<Int, Module.length>; // ERROR! fields start with a
+	                                       // lower-case alphabet cannot be used
 }
 
 class Module extends ShaderModule {
@@ -228,7 +228,7 @@ class Module extends ShaderModule {
 }
 ```
 
-Limitation: due to Haxe's grammar, you cannot use a field starts with lower-case alphabets for array size parameter, even if it is actually a compile-time constant.
+Limitation: due to the Haxe's grammar, you cannot use a field starts with a lower-case alphabet for an array size parameter, even if it is actually a compile-time constant.
 
 ### Literal arrays and structures
 
