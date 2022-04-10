@@ -542,7 +542,7 @@ var   b = (A & B) | (C ^ (D & E)); // this will not be folded
 a == b; // true, yes they are the same!
 ```
 
-To be honest, this can be technically avoided by reconstructing ASTs, but it's not done anyways. I may be implement that in future, or not.
+To be honest, this can be technically avoided by reconstructing ASTs, but it's not done anyways. I may implement that in future, or not.
 
 ## Examples
 
