@@ -276,7 +276,7 @@ var b = [uint(1), 2, 3, 4, 5];      // uint[5]
 // var c = [1, 2.0, 3.0, 4.0, 5.0]; // ERROR! cannot convert floats to ints
 ```
 
-This rule also applies for structures.
+This "expected type" rule also applies for structures.
 
 ```hx
 var a:{x:Array<Float, 5>, y:UInt} = {
