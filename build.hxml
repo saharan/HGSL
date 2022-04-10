@@ -1,0 +1,5 @@
+-cp src
+-cp examples/src
+-D analyzer-optimize
+-main Main
+--jvm examples/bin/main.jar
