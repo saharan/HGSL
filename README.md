@@ -511,14 +511,14 @@ In Haxe, priority of bitwise operators `&`, `|`, and `^` is **all the same**, wh
 
 ```hx
 1 & 2 | 3 ^ 4 & 5;
-((((1 & 2) | 3) ^ 4) & 5);
+(((1 & 2) | 3) ^ 4) & 5;
 ```
 
 In most languages, however, `&` > `^` > `|` holds in terms of priority. So the following two statements are the same in those languages.
 
 ```cpp
 1 & 2 | 3 ^ 4 & 5;
-((1 & 2) | (3 ^ (4 & 5)));
+(1 & 2) | (3 ^ (4 & 5));
 ```
 
 This is also true for GLSL. Since compiled source code of an HGSL shader will be compiled again by a GLSL compiler, precedence of operators will be the same as that of GLSL, so no worries.
