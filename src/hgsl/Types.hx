@@ -42,7 +42,7 @@ extern abstract IVec4 to UVec4 to Vec4 {
 
 @:coreType
 @:build(hgsl.macro.Builder.buildBaseType())
-extern abstract UInt to Float {
+extern abstract UInt from StdTypes.Int to Float {
 	private function dummy():Void;
 }
 
