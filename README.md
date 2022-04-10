@@ -339,7 +339,7 @@ class ChildShader extends Shader {
 }
 ```
 
-You can refer parent implementations by using the keyword `super`. In this case, the result is the same.
+You can refer parent implementations by using the keyword `super`. In this case, the result is the same as the previous one (returns `2`).
 
 All variables will be inherited and cannot be overridden.
 
