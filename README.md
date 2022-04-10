@@ -491,10 +491,10 @@ class Module extends ShaderModule {
 
 class Main { // usual Haxe class
 	static function main() {
-		// value of StdTypes.INT (and NOT hgsl.Types.Int)
+		// value of StdTypes.INT (not hgsl.Types.Int)
 		trace(Module.consts.SOME_CONST_INT);
 		
-		// value of std.Array<StdTypes.Int> (and NOT hgsl.Types.Array<Int, 3>)
+		// value of std.Array<StdTypes.Int> (not hgsl.Types.Array<Int, 3>)
 		trace(Module.consts.SOME_CONST_ARRAY);
 		
 		// do NOT do this; you will obtain nothing
