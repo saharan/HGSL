@@ -148,10 +148,15 @@ typedef GInternalType = {
 	cvalue:Null<ConstValue>
 }
 
-enum GLocalVarKind {
+enum LocalVarKind {
 	Mutable;
 	Immutable;
 	Const(cvalue:ConstValue);
+}
+
+enum ArgumentVarKind {
+	In;
+	InOut;
 }
 
 enum GGlobalVarKind {
@@ -179,7 +184,8 @@ enum GVarKind {
 	Global(kind:GGlobalVarKind);
 	GlobalConstUnparsed(e:Expr);
 	GlobalConstParsing();
-	Local(kind:GLocalVarKind);
+	Local(kind:LocalVarKind);
+	Argument(kind:ArgumentVarKind);
 }
 
 enum GBuiltInVariableKind {

@@ -69,8 +69,8 @@ class Parser {
 
 	function parseFuncImpl(env:Environment, pos:Position):String {
 		final target = env.target;
-		final rawName = env.module + "." + env.className + "." + target.name + "(" + target.args.map(arg -> arg.type.toString())
-			.join(",") + "):" + target.type.toString();
+		final rawName = env.module + "." + env.className + "." + target.name + "(" + target.args.map(arg -> arg.type.toString()).join(",") + "):"
+			+ target.type.toString();
 		if (funcNameMap.exists(rawName)) {
 			// already parsed
 			return funcNameMap[rawName];
@@ -112,7 +112,7 @@ class Parser {
 
 		env.pushScope();
 		for (arg in target.args) {
-			env.defineVar(arg.name, arg.type, Local(Mutable), null, pos);
+			env.defineVar(arg.name, arg.type, Argument(In), null, pos);
 		}
 
 		final noBlockAtRoot = !target.expr.expr.match(EBlock(_));
@@ -214,6 +214,8 @@ class Parser {
 				case GlobalConstParsing:
 					throw ierror(macro "internal error");
 				case Local(kind):
+					throw ierror(macro "internal error");
+				case Argument(kind):
 					throw ierror(macro "internal error");
 			}
 		}
@@ -487,8 +489,7 @@ class Parser {
 		}
 	}
 
-	public function parseExpr(e:Expr, src:Source, env:Environment, statement:Bool, expectedType:GType = null,
-			isFuncRoot:Bool = false):GInternalType {
+	public function parseExpr(e:Expr, src:Source, env:Environment, statement:Bool, expectedType:GType = null, isFuncRoot:Bool = false):GInternalType {
 		final source = new Source();
 		final res = parseExprWithoutConstantFolding(e, source, env, statement, expectedType, isFuncRoot);
 		addFoldingConstant(source, src, statement, res.cvalue);
@@ -629,8 +630,7 @@ class Parser {
 										case BuiltIn(vkind):
 											if (v.name == s) {
 												switch ([kind, vkind]) {
-													case [Module, _] | [Vertex, VertexIn | VertexOut] |
-														[Fragment, FragmentIn | FragmentOut]:
+													case [Module, _] | [Vertex, VertexIn | VertexOut] | [Fragment, FragmentIn | FragmentOut]:
 													// ok
 													case [Fragment, _]:
 														addError("cannot access " + s + " from a fragment shader", pos);
@@ -728,6 +728,13 @@ class Parser {
 												case Mutable:
 													true;
 												case Immutable | Const(_):
+													false;
+											}
+										case Argument(kind):
+											switch kind {
+												case InOut:
+													true;
+												case In:
 													false;
 											}
 									},
