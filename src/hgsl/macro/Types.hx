@@ -128,8 +128,13 @@ enum GType {
 	TUSampler2DArray;
 	TStruct(fields:GStructFields);
 	TArray(type:GType, size:ArraySize);
-	TFunc(args:Array<{name:String, type:GType}>, ret:GType);
+	TFunc(f:GFuncType);
 	TFuncUnknown;
+}
+
+typedef GFuncType = {
+	args:Array<{name:String, type:GType}>,
+	ret:GType
 }
 
 enum ArraySize {
@@ -224,7 +229,13 @@ typedef GFuncBase = {
 
 enum GFuncKind {
 	BuiltIn;
-	User(expr:Expr, field:Field, env:Environment);
+	User(data:UserFuncData);
+}
+
+typedef UserFuncData = {
+	expr:Expr,
+	field:Field,
+	env:Environment
 }
 
 typedef GFunc = GFuncBase & {

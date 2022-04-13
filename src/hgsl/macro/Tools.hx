@@ -141,8 +141,8 @@ class Tools {
 							TPExpr(path);
 					}]
 				});
-			case TFunc(args, res):
-				TFunction(args.map(arg -> TNamed(arg.name, toComplexType(arg.type))), toComplexType(res));
+			case TFunc(f):
+				TFunction(f.args.map(arg -> TNamed(arg.name, toComplexType(arg.type))), toComplexType(f.ret));
 			case TFuncUnknown:
 				throw ierror(macro "unexpected unknown function type");
 		}
@@ -286,6 +286,20 @@ class Tools {
 		return binopToString(op);
 	}
 
+	public static function isFunctionType(type:GType):Bool {
+		return switch type {
+			case TFunc(_) | TFuncUnknown:
+				true;
+			case _:
+				false;
+		}
+	}
+
+	public static function match(type:GFuncType, func:GFunc):Bool {
+		return type.args.length == func.args.length && type.args.zip(func.args, (a, b) -> a.type.equals(b.type))
+			.all() && type.ret.equals(func.type);
+	}
+
 	static function gtypeToString(type:GType):String {
 		return switch type {
 			case TVoid:
@@ -379,8 +393,8 @@ class Tools {
 					case Delayed(_):
 						"<unknown>";
 				}) + "]";
-			case TFunc(args, res):
-				"(" + args.map(arg -> gtypeToString(arg.type)).join(", ") + ") -> " + gtypeToString(res);
+			case TFunc(f):
+				"(" + f.args.map(arg -> gtypeToString(arg.type)).join(", ") + ") -> " + gtypeToString(f.ret);
 			case TFuncUnknown:
 				"(<unknown>) -> <unknown>";
 		}
@@ -1181,8 +1195,9 @@ class Tools {
 				a.length == b.length && zip(a, b, (a, b) -> a.name == b.name && equals(a.type, b.type, sortFields)).all();
 			case [TArray(ta, sizea), TArray(tb, sizeb)]: //
 				sizea.equals(sizeb) && equals(ta, tb, sortFields);
-			case [TFunc(aa, ra), TFunc(ab, rb)]: //
-				aa.length == ab.length && zip(aa, ab, (a, b) -> equals(a.type, b.type, sortFields)).all() && equals(ra, rb, sortFields);
+			case [TFunc(fa), TFunc(fb)]: //
+				fa.args.length == fb.args.length && zip(fa.args, fb.args, (a,
+						b) -> equals(a.type, b.type, sortFields)).all() && equals(fa.ret, fb.ret, sortFields);
 			case _:
 				false;
 		}

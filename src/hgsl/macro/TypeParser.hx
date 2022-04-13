@@ -216,12 +216,10 @@ class TypeParser {
 						final type = switch t {
 							case TInst(_.get() => t, _) if (t.superClass != null && t.superClass.t.get().module == STRUCT_MODULE_PATH):
 								switch t.fields.get() {
-									case [
-										{
-											name: "struct",
-											type: type
-										}
-									]:
+									case [{
+										name: "struct",
+										type: type
+									}]:
 										parseType(type.toComplexType(), t.pos, false, context);
 									case _:
 										addError("recursion in structure fields found", pos);
@@ -230,7 +228,8 @@ class TypeParser {
 							case TType(_.get() => def, _): // typedef found, try following it
 								switch t.follow() {
 									case TAnonymous(_.get() => a):
-										addError("typedef for anonymous structure is not supported; use " + STRUCT_MODULE_PATH + " instead", def.pos);
+										addError("typedef for anonymous structure is not supported; use " + STRUCT_MODULE_PATH +
+											" instead", def.pos);
 										TVoid;
 									case type:
 										parseType(type.toComplexType(), pos, false, context);
@@ -294,25 +293,28 @@ class TypeParser {
 					TVoid;
 				} else {
 					try {
-						TFunc(args.map(arg -> switch arg {
-							case TNamed(n, t):
-								{
-									name: n,
-									type: parseType(t, pos, false, {
-										paths: context.paths,
-										inArray: context.inArray,
-										inArrayDirect: false,
-										inStruct: context.inStruct
-									})
-								}
-							case _:
-								throw error("expected named type", pos);
-						}), parseType(ret, pos, true, {
-							paths: context.paths,
-							inArray: context.inArray,
-							inArrayDirect: false,
-							inStruct: context.inStruct
-						}));
+						TFunc({
+							args: args.map(arg -> switch arg {
+								case TNamed(n, t):
+									{
+										name: n,
+										type: parseType(t, pos, false, {
+											paths: context.paths,
+											inArray: context.inArray,
+											inArrayDirect: false,
+											inStruct: context.inStruct
+										})
+									}
+								case _:
+									throw error("expected named type", pos);
+							}),
+							ret: parseType(ret, pos, true, {
+								paths: context.paths,
+								inArray: context.inArray,
+								inArrayDirect: false,
+								inStruct: context.inStruct
+							})
+						});
 					} catch (e:GError) {
 						addError(e.message, e.pos);
 						TVoid;

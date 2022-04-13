@@ -326,11 +326,11 @@ class Builder {
 				switch f.kind {
 					case BuiltIn:
 						throw ierror(macro "unexpected bult-in function");
-					case User(expr, field, _):
+					case User(data):
 						final origName = f.name;
 						// define the function with its original name,
 						// this one can be overridden
-						env.defineFunc(origName, f.type, f.args, f.region, expr, field, f.pos);
+						env.defineFunc(origName, f.type, f.args, f.region, data.expr, data.field, f.pos);
 
 						// also define the function with the tweaked name,
 						// this one cannot be overridden and can be accessed with super keyword
@@ -345,7 +345,7 @@ class Builder {
 								// already registered, use it
 								name;
 						}
-						env.defineFunc(tweakedName, f.type, f.args, f.region, expr, field, f.pos);
+						env.defineFunc(tweakedName, f.type, f.args, f.region, data.expr, data.field, f.pos);
 						tweakedSuperFuncFields.push({
 							name: tweakedName,
 							access: [AExtern, AOverload],

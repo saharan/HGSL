@@ -112,14 +112,14 @@ class Environment {
 					switch f.kind {
 						case BuiltIn:
 							throw ierror(macro "unexpected built-in function");
-						case User(_, field, _):
+						case User(data):
 							final ptype = f.type;
 							final pargs = f.args.map(arg -> arg.type);
 							f.type = parser.resolveArraySize(this, f.type, f.pos);
 							for (arg in f.args) {
 								arg.type = parser.resolveArraySize(this, arg.type, f.pos);
 							}
-							switch field.kind {
+							switch data.field.kind {
 								case FFun(func):
 									if (f.type.match(TStruct(_) | TArray(_))) {
 										func.ret = f.type.toComplexType();
@@ -266,7 +266,11 @@ class Environment {
 			name: name,
 			region: region,
 			ctor: false,
-			kind: User(expr, field, this),
+			kind: User({
+				expr: expr,
+				field: field,
+				env: this
+			}),
 			pos: pos
 		}
 		defineField(FFunc(res));

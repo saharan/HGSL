@@ -10,12 +10,7 @@ class Parser {
 
 	final structPool:StructPool;
 	final funcNameMap:Map<String, String> = new Map();
-	final funcs:Array<{
-		name:String,
-		func:ParsedFunction,
-		defSource:String,
-		mainSource:String
-	}> = [];
+	final funcs:Array<ParsedFunction> = [];
 
 	static var initialized:Bool = false;
 	static final globalClassType:Lazy<ClassType> = getGlobalClassType;
@@ -67,18 +62,21 @@ class Parser {
 		parseFuncImpl(env, func.pos);
 	}
 
+	// TODO: implement this
+	// function generateFunctionAlias(rawName:String, func:ParsedFunction, name:String):Void {
+	// 	final alias = new ParsedFunction(name, func.returnType, func.args);
+	// 	if (func.returnType != TVoid)
+	// 		alias.source.add("return ");
+	// 	alias.source.add(func.name + "(" + func.args.map(arg -> arg.name).join(", ") + ");");
+	// }
+
 	function parseFuncImpl(env:Environment, pos:Position):String {
 		final target = env.target;
-		var funcExpr;
-		var funcField;
-		var funcEnv;
-		switch target.kind {
+		final data = switch target.kind {
 			case BuiltIn:
 				throw ierror(macro "cannot parse a built-in function");
-			case User(expr, field, env):
-				funcExpr = expr;
-				funcField = field;
-				funcEnv = env;
+			case User(data):
+				data;
 		}
 		final rawName = env.module + "." + env.className + "." + target.name + "(" + target.args.map(arg -> arg.type.toString())
 			.join(",") + "):" + target.type.toString();
@@ -98,13 +96,13 @@ class Parser {
 		}
 		funcNameMap[rawName] = funcIdent;
 
-		final func = new ParsedFunction(funcIdent, target.type, target.args);
-		final mainSource = func.source;
+		final func = new ParsedFunction(funcIdent);
+		final mainSource = func.mainSource;
 		mainSource.add(target.type.toGLSLType(this));
 		mainSource.add(" ");
 		mainSource.add(funcIdent);
 		mainSource.add("(");
-		final defSource = new Source();
+		final defSource = func.defSource;
 		defSource.append(mainSource);
 		for (i in 0...target.args.length) {
 			if (i > 0) {
@@ -126,24 +124,86 @@ class Parser {
 			env.defineVar(arg.name, arg.type, Argument(In), null, pos);
 		}
 
-		final noBlockAtRoot = !funcExpr.expr.match(EBlock(_));
+		final noBlockAtRoot = !data.expr.expr.match(EBlock(_));
 		if (noBlockAtRoot) {
 			mainSource.add("{");
 			mainSource.increaseIndent();
 			mainSource.breakLine();
 		}
-		parseExpr(funcExpr, mainSource, env, true, null, true);
+		parseExpr(data.expr, mainSource, env, true, null, true);
 		if (noBlockAtRoot) {
 			mainSource.decreaseIndent();
 			mainSource.add("}");
 		}
-		funcs.push({
-			name: funcIdent,
-			func: func,
-			defSource: defSource.toString(),
-			mainSource: mainSource.toString()
-		});
+		funcs.push(func);
 
+		env.popScope();
+		// trace(func.source.toString());
+		return funcIdent;
+	}
+
+	function parseFunc2(func:FunctionToParse, pos:Position):String {
+		final data = func.userFuncData;
+		final target = func.target;
+		final env = data.env;
+		final key = func.generateKey();
+		if (funcNameMap.exists(key)) {
+			// already parsed
+			return funcNameMap[key];
+		}
+		final funcIdent = if (env.module == mainModule && env.className == mainName) {
+			switch target.name {
+				case "vertex" | "fragment":
+					"main";
+				case name:
+					name;
+			}
+		} else {
+			(env.module + "." + env.className + "." + target.name).replace(".", "_");
+		}
+		funcNameMap[key] = funcIdent;
+		final parsed = new ParsedFunction(funcIdent);
+		final mainSource = parsed.mainSource;
+		mainSource.add(target.type.toGLSLType(this));
+		mainSource.add(" ");
+		mainSource.add(funcIdent);
+		mainSource.add("(");
+		final defSource = parsed.defSource;
+		defSource.append(mainSource);
+		for (i => arg in func.normalArgs) {
+			if (i > 0) {
+				defSource.add(", ");
+				mainSource.add(", ");
+			}
+			final glType = arg.type.toGLSLType(this);
+			defSource.add(glType);
+			mainSource.add(glType);
+			mainSource.add(" ");
+			mainSource.add(arg.name);
+		}
+		defSource.add(");");
+		mainSource.add(") ");
+		env.pushScope();
+		// define normal args
+		for (arg in func.normalArgs) {
+			env.defineVar(arg.name, arg.type, Argument(In), null, pos);
+		}
+		// define passed function arguments
+		for (arg in func.funcArgs) {
+			env.defineVar(arg.name, TFunc(arg.type), Local(Const(VFunc([arg.func]))), null, pos);
+		}
+		final noBlockAtRoot = !data.expr.expr.match(EBlock(_));
+		if (noBlockAtRoot) {
+			mainSource.add("{");
+			mainSource.increaseIndent();
+			mainSource.breakLine();
+		}
+		parseExpr(data.expr, mainSource, env, true, null, true);
+		if (noBlockAtRoot) {
+			mainSource.decreaseIndent();
+			mainSource.add("}");
+		}
+		funcs.push(parsed);
 		env.popScope();
 		// trace(func.source.toString());
 		return funcIdent;
@@ -233,14 +293,14 @@ class Parser {
 		if (sources.length != plen)
 			sources.push("");
 		for (func in funcs) {
-			sources.push(func.defSource);
+			sources.push(func.defSource.toString());
 		}
 		if (funcs.length > 0)
 			sources.push("");
 		for (i => func in funcs) {
 			if (i > 0)
 				sources.push("");
-			sources.push(func.mainSource);
+			sources.push(func.mainSource.toString());
 		}
 		final res = sources.join("\n");
 		// trace(res);
@@ -500,14 +560,6 @@ class Parser {
 		}
 	}
 
-	public function parseExpr(e:Expr, src:Source, env:Environment, statement:Bool, expectedType:GType = null,
-			isFuncRoot:Bool = false):GInternalType {
-		final source = new Source();
-		final res = parseExprWithoutConstantFolding(e, source, env, statement, expectedType, isFuncRoot);
-		addFoldingConstant(source, src, statement, res.cvalue);
-		return res;
-	}
-
 	function resolveExternalClassFieldAccess(fieldChain:FieldChain, pos:Position):{
 		localChain:FieldChain,
 		fullChain:FieldChain,
@@ -549,6 +601,14 @@ class Parser {
 		}
 	}
 
+	public function parseExpr(e:Expr, src:Source, env:Environment, statement:Bool, expectedType:GType = null,
+			isFuncRoot:Bool = false):GInternalType {
+		final source = new Source();
+		final res = parseExprWithoutConstantFolding(e, source, env, statement, expectedType, isFuncRoot);
+		addFoldingConstant(source, src, statement, res.cvalue);
+		return res;
+	}
+
 	function parseExprWithoutConstantFolding(e:Expr, src:Source, env:Environment, statement:Bool, expectedType:GType = null,
 			isFuncRoot:Bool = false):GInternalType {
 		final origExpr = e;
@@ -586,13 +646,13 @@ class Parser {
 				final internalType = parseExpr(e, source, env, statement);
 				final type = internalType.type;
 
-				if (type.match(TFunc(_) | TFuncUnknown)) {
-					switch expectedType {
-						case TFunc(args, ret):
-							switch internalType.cvalue {
-								case null:
-									throw ierror(macro "function type variable must be a compile-time constant");
-								case VFunc(funcs):
+				if (type.isFunctionType()) {
+					switch internalType.cvalue {
+						case null:
+							throw ierror(macro "function type variable must be a compile-time constant");
+						case VFunc(funcs):
+							switch expectedType {
+								case TFunc({args: args, ret: ret}): // extract a specific function
 									switch funcs.filter(f -> f.args.length == args.length && f.args.zip(args, (a,
 											b) -> a.type.equals(b.type))
 										.all() && f.type.equals(ret)) {
@@ -607,14 +667,18 @@ class Parser {
 										case _:
 											throw ierror(macro "multiple functions found");
 									}
+								case TFuncUnknown: // any functions are fine
+									return {
+										type: TFuncUnknown,
+										lvalue: false,
+										cvalue: VFunc(funcs)
+									}
 								case _:
-									throw ierror(macro "unexpected cvalue");
+									final msg = "unexpected expected type: " + expectedType.toString();
+									throw ierror(macro $v{msg});
 							}
-						case TFuncUnknown:
-							throw ierror(macro "unknown function type must not be used as an expected type");
 						case _:
-							final msg = "unexpected expected type: " + expectedType.toString();
-							throw ierror(macro $v{msg});
+							throw ierror(macro "unexpected cvalue");
 					}
 				}
 
@@ -930,6 +994,8 @@ class Parser {
 				src.add("(");
 				final t = parseExpr(e, src, env, false);
 				src.add(")");
+				if (t.type.isFunctionType() && statement)
+					throw error("cannot use a function here", pos);
 				if (statement)
 					src.add(";");
 				t;
@@ -952,7 +1018,7 @@ class Parser {
 					final baseType = first.type;
 					if (baseType.match(TArray(_)))
 						addError("multidimensional array is not supported", pos);
-					if (baseType.match(TFunc(_) | TFuncUnknown))
+					if (baseType.isFunctionType())
 						addError("array of functions is not supported", pos);
 					final rest = [for (i in 1...n) parseExpr(values[i], sources[i], env, false, baseType)];
 					final internalTypes = [first].concat(rest);
@@ -1001,7 +1067,7 @@ class Parser {
 					}
 					final type = parseExpr(field.expr, source, env, false, expectedFieldType);
 					final pos = field.expr.pos;
-					if (type.type.match(TFunc(_) | TFuncUnknown))
+					if (type.type.isFunctionType())
 						throw error("structure must not contain a function", pos);
 					if (type.type.containsSampler())
 						throw error("cannot make a structure that contains a sampler", pos);
@@ -1047,7 +1113,7 @@ class Parser {
 				final pos = e.pos;
 				final source = new Source();
 				final type = parseExpr(e, source, env, false);
-				if (!type.type.match(TFunc(_) | TFuncUnknown))
+				if (!type.type.isFunctionType())
 					throw error("cannot call " + type.type.toString(), pos);
 				switch type.cvalue {
 					case null:
@@ -1059,14 +1125,15 @@ class Parser {
 						});
 						final name = funcs[0].name;
 
-						final funcinfo = switch funcs[0].kind {
+						final data = switch funcs[0].kind {
 							case BuiltIn:
 								null;
-							case User(expr, _, env):
-								{expr: expr, env: env}
+							case User(data):
+								data;
 						}
+						final isBuiltIn = data == null;
 						final isConstructor = funcs[0].ctor;
-						if (funcinfo == null && isConstructor) {
+						if (isBuiltIn && isConstructor) {
 							if (funcs.length > 1)
 								throw ierror(macro "built-in constructors must not be overloaded");
 							final func = funcs[0];
@@ -1096,7 +1163,7 @@ class Parser {
 								case _:
 							}
 
-							final noParentheses = if (funcinfo == null && name == "discard") {
+							final noParentheses = if (isBuiltIn && name == "discard") {
 								if (!statement)
 									throw error("cannot call discard in this form", pos);
 								true;
@@ -1116,9 +1183,9 @@ class Parser {
 							if (statement)
 								src.add(";");
 
-							if (funcinfo != null) {
+							if (!isBuiltIn) {
 								// parse recursively
-								final env = funcinfo.env.copyGlobal();
+								final env = data.env.copyGlobal();
 								env.setTargetFunc(func);
 								realName = parseFuncImpl(env, pos);
 							}
@@ -1171,7 +1238,7 @@ class Parser {
 					if (type == TVoid) {
 						addError("variable type must not be void", pos);
 					} else {
-						if (type.match(TFunc(_) | TFuncUnknown)) {
+						if (type.isFunctionType()) {
 							switch cvalue {
 								case null:
 									addError("function type variable must be a compile-time constant", pos);
@@ -1181,7 +1248,10 @@ class Parser {
 										addError("cannot bind a type constructor to a variable", pos);
 										continue;
 									}
-									type = TFunc(f.args.map(arg -> {name: arg.name, type: arg.type}), f.type);
+									type = TFunc({
+										args: f.args.map(arg -> {name: arg.name, type: arg.type}),
+										ret: f.type
+									});
 									isFuncType = true;
 								case VFunc(_):
 									addError("ambiguous reference to a function", pos);
@@ -1428,6 +1498,11 @@ class Parser {
 				final t1 = parseExpr(eif, src, env, false);
 				src.add(" : ");
 				final t2 = parseExpr(eelse, src, env, false, t1.type);
+
+				final isFunc = t1.type.isFunctionType();
+				if (isFunc && statement)
+					throw error("cannot use a function here", pos);
+
 				if (statement)
 					src.add(";");
 				{
@@ -1437,6 +1512,8 @@ class Parser {
 						case VScalar(VBool(v)):
 							v ? t1.cvalue : t2.cvalue;
 						case _:
+							if (isFunc)
+								throw error("function reference could not be resolved at compile time", pos);
 							null;
 					}
 				}
