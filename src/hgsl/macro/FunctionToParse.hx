@@ -30,8 +30,8 @@ class FunctionToParse {
 					type: f,
 					func: null
 				}
-			case TFuncUnknown:
-				throw ierror(macro "unexpected unknown function type");
+			case TFuncs(_):
+				throw ierror(macro "unexpected functions type");
 			case _:
 				throw ierror(macro "expected function type");
 		});

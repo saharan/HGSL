@@ -129,7 +129,7 @@ enum GType {
 	TStruct(fields:GStructFields);
 	TArray(type:GType, size:ArraySize);
 	TFunc(f:GFuncType);
-	TFuncUnknown;
+	TFuncs(fs:Array<GFuncType>);
 }
 
 typedef GFuncType = {

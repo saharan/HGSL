@@ -6,7 +6,7 @@ import haxe.macro.Context;
 class Environment {
 	public var module:String;
 	public var className:String;
-	public var target:GFunc;
+	public var targetReturnType:GType;
 	public var withinClass:ClassType;
 
 	public final passedFuncs:Array<GFunc> = [];
@@ -74,10 +74,6 @@ class Environment {
 			}
 			count++;
 		}
-	}
-
-	public function setTargetFunc(func:GFunc):Void {
-		target = func;
 	}
 
 	public function pushScope():Void {

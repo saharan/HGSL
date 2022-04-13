@@ -143,9 +143,16 @@ class Tools {
 				});
 			case TFunc(f):
 				TFunction(f.args.map(arg -> TNamed(arg.name, toComplexType(arg.type))), toComplexType(f.ret));
-			case TFuncUnknown:
-				throw ierror(macro "unexpected unknown function type");
+			case TFuncs(_):
+				throw ierror(macro "unexpected functions type");
 		}
+	}
+
+	public static function toFuncTypes(funcs:Array<GFunc>):GType {
+		return TFuncs(funcs.map(f -> {
+			args: f.args.map(arg -> {name: arg.name, type: f.type}),
+			ret: f.type
+		}));
 	}
 
 	public static function toGLSLType(type:GType, parser:Parser):String {
@@ -241,7 +248,7 @@ class Tools {
 					case Delayed(_):
 						throw ierror(macro "array size must have been resolved");
 				}) + "]";
-			case TFunc(_) | TFuncUnknown:
+			case TFunc(_) | TFuncs(_):
 				throw ierror(macro "function type cannot be converted into a GLSL type");
 		}
 	}
@@ -288,7 +295,7 @@ class Tools {
 
 	public static function isFunctionType(type:GType):Bool {
 		return switch type {
-			case TFunc(_) | TFuncUnknown:
+			case TFunc(_) | TFuncs(_):
 				true;
 			case _:
 				false;
@@ -394,9 +401,11 @@ class Tools {
 						"<unknown>";
 				}) + "]";
 			case TFunc(f):
-				"(" + f.args.map(arg -> gtypeToString(arg.type)).join(", ") + ") -> " + gtypeToString(f.ret);
-			case TFuncUnknown:
-				"(<unknown>) -> <unknown>";
+				"(" + f.args.map(arg -> arg.name + ":" + gtypeToString(arg.type)).join(", ") + ") -> " + gtypeToString(f.ret);
+			case TFuncs(fs):
+				"[" + fs.map(f -> "(" + f.args.map(arg -> arg.name + ":" + gtypeToString(arg.type))
+					.join(", ") + ") -> " + gtypeToString(f.ret))
+					.join(", ") + "]";
 		}
 	}
 
@@ -831,6 +840,10 @@ class Tools {
 		}
 	}
 
+	static function funcTypeEquals(a:GFuncType, b:GFuncType):Bool {
+		return a.args.length == b.args.length && a.args.zip(b.args, (a, b) -> a.type.equals(b.type)).all() && a.ret.equals(b.ret);
+	}
+
 	overload public extern static inline function canImplicitlyCast(src:GType, dst:GType):Bool {
 		return src.equals(dst) || switch [src, dst] {
 			case [TInt, TUInt] | [TIVec2, TUVec2] | [TIVec3, TUVec3] | [TIVec4, TUVec4]: // int -> uint
@@ -839,6 +852,8 @@ class Tools {
 				true;
 			case [TUInt, TFloat] | [TUVec2, TVec2] | [TUVec3, TVec3] | [TUVec4, TVec4]: // uint -> float
 				true;
+			case [TFuncs(fs), TFunc(f)]:
+				fs.exists(func -> funcTypeEquals(func, f));
 			case _: // nope
 				false;
 		}
@@ -907,12 +922,9 @@ class Tools {
 			case [f]:
 				f;
 			case []:
-				// trace("args: ");
-				// trace(args.map(arg -> arg.toString()).join(", "));
-				// trace("candidates: ");
-				// trace(candidates.map(f -> f.args.map(arg -> arg.type.toString()).join(", ")).join("\n"));
-				// trace("pos: " + pos);
-				throw error("no suitable overload found", pos);
+				final msg = "argument types: " + args.map(arg -> arg.toString()).join(", ");
+				msg += "\ncandidates:\n" + candidates.map(f -> f.args.map(arg -> arg.type.toString()).join(", ")).join("\n");
+				throw error("no suitable overload found\n" + msg, pos);
 			case ambiguous:
 				throw error("ambiguous overload, candidates: " + ambiguous.map(i -> "(" + candidates[i].args.map(arg -> arg.type.toString())
 					.join(", ") + ")")
@@ -1134,7 +1146,7 @@ class Tools {
 				fields.map(f -> containsSampler(f.type)).has(true);
 			case TArray(type, _):
 				containsSampler(type);
-			case TFunc(_) | TFuncUnknown:
+			case TFunc(_) | TFuncs(_):
 				false;
 		}
 	}

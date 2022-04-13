@@ -835,7 +835,7 @@ class Builder {
 				macro Struct;
 			case TArray(_):
 				throw ierror(macro "unexpected array");
-			case TFunc(_) | TFuncUnknown:
+			case TFunc(_) | TFuncs(_):
 				throw ierror(macro "unexpected function type");
 		}
 	}
