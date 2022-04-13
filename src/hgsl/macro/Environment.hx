@@ -9,6 +9,8 @@ class Environment {
 	public var target:GFunc;
 	public var withinClass:ClassType;
 
+	public final passedFuncs:Array<GFunc> = [];
+
 	final scopes:Array<Array<GField>> = [[]];
 
 	final tempVariables:Array<TempVariable> = [];
@@ -53,21 +55,6 @@ class Environment {
 		envMap[key] = env;
 	}
 
-	public static function ofClassType(classType:ClassType):Environment {
-		final module = classType.module;
-		final name = classType.name;
-		final reg = getRegistered(module, name);
-		if (reg != null)
-			return reg;
-		final res = new Environment(module, name);
-		res.withinClass = classType;
-		for (field in classType.statics.get().filter(field -> !field.meta.has(":deprecated")).toGFields(true)) {
-			res.defineField(field);
-		}
-		register(module, name, res);
-		return res;
-	}
-
 	public function registerSuperFunctionNameAs(origName:String, name:String):Void {
 		superFuncNameMap[origName] = name;
 	}
@@ -77,9 +64,16 @@ class Environment {
 	}
 
 	public function tweakFunctionName(name:String):String {
-		while (resolveField(name) != null || [for (_ => superName in superFuncNameMap) superName].contains(name))
-			name = "_" + name;
-		return name;
+		final regex = ~/^_(.*)_[0-9]+$/;
+		final origName = regex.match(name) ? regex.matched(1) : name;
+		var count = 0;
+		while (true) {
+			final newName = "_" + origName + "_" + count;
+			if (resolveField(newName) == null && ![for (_ => superName in superFuncNameMap) superName].contains(newName)) {
+				return newName;
+			}
+			count++;
+		}
 	}
 
 	public function setTargetFunc(func:GFunc):Void {
@@ -114,25 +108,30 @@ class Environment {
 						case _:
 							throw ierror(macro "internal error");
 					}
-				case FFunc(f) if (f.field != null):
-					final ptype = f.type;
-					final pargs = f.args.map(arg -> arg.type);
-					f.type = parser.resolveArraySize(this, f.type, f.field.pos);
-					for (arg in f.args) {
-						arg.type = parser.resolveArraySize(this, arg.type, f.field.pos);
-					}
-					switch f.field.kind {
-						case FFun(func):
-							if (f.type.match(TStruct(_) | TArray(_))) {
-								func.ret = f.type.toComplexType();
+				case FFunc(f):
+					switch f.kind {
+						case BuiltIn:
+							throw ierror(macro "unexpected built-in function");
+						case User(_, field, _):
+							final ptype = f.type;
+							final pargs = f.args.map(arg -> arg.type);
+							f.type = parser.resolveArraySize(this, f.type, f.pos);
+							for (arg in f.args) {
+								arg.type = parser.resolveArraySize(this, arg.type, f.pos);
 							}
-							for (i => arg in func.args) {
-								if (f.args[i].type.match(TStruct(_) | TArray(_))) {
-									arg.type = f.args[i].type.toComplexType();
-								}
+							switch field.kind {
+								case FFun(func):
+									if (f.type.match(TStruct(_) | TArray(_))) {
+										func.ret = f.type.toComplexType();
+									}
+									for (i => arg in func.args) {
+										if (f.args[i].type.match(TStruct(_) | TArray(_))) {
+											arg.type = f.args[i].type.toComplexType();
+										}
+									}
+								case _:
+									throw ierror(macro "internal error");
 							}
-						case _:
-							throw ierror(macro "internal error");
 					}
 				case _:
 			}
@@ -182,7 +181,10 @@ class Environment {
 			throw error("cannot use " + name + " as an identifier", pos);
 		}
 		if (name.startsWith("gl_")) {
-			throw error("identifier must not start with gl_", pos);
+			throw error("identifier must not start with \"gl_\"", pos);
+		}
+		if (name.contains("__")) {
+			throw error("identifier must not include \"__\"", pos);
 		}
 	}
 
@@ -206,9 +208,16 @@ class Environment {
 						throw error("varying of " + type.toString() + " must be specified flat", pos);
 					case _:
 				}
-			case Local(_):
+			case Local(kind):
 				if (type.containsSampler())
 					addError("cannot define a local variable of a type that contains a sampler", pos);
+				if (type.match(TFunc(_))) {
+					switch kind {
+						case Const(_): // ok
+						case _:
+							addError("function type variable must be a compile-time constant", pos);
+					}
+				}
 			case _:
 		}
 
@@ -217,7 +226,8 @@ class Environment {
 				for (f in scopes[0]) {
 					switch f {
 						case FVar(_.kind => Attribute(Specified(location2))):
-							if (location == location2) throw error("multiple vertex attributes at the same location", pos);
+							if (location == location2)
+								throw error("multiple vertex attributes at the same location", pos);
 						case _:
 					}
 				}
@@ -225,7 +235,8 @@ class Environment {
 				for (f in scopes[0]) {
 					switch f {
 						case FVar(_.kind => Color(Specified(location2))):
-							if (location == location2) throw error("multiple output colors at the same location", pos);
+							if (location == location2)
+								throw error("multiple output colors at the same location", pos);
 						case _:
 					}
 				}
@@ -247,14 +258,15 @@ class Environment {
 		checkIdentifier(name, pos);
 		if (scopes.length > 1)
 			throw error("function can only be defined at a global scope", pos);
+		if (!type.isOkayForReturn())
+			throw error("cannot use " + type.toString() + " for a return type", pos);
 		final res = {
 			type: type,
 			args: args,
 			name: name,
 			region: region,
 			ctor: false,
-			expr: expr,
-			field: field,
+			kind: User(expr, field, this),
 			pos: pos
 		}
 		defineField(FFunc(res));

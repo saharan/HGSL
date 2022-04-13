@@ -1,4 +1,4 @@
-package examples.basic;
+package basic;
 
 import hgsl.Global.*;
 import hgsl.Types;

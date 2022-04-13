@@ -9,9 +9,18 @@ import hgsl.ShaderStruct; // any shader structures must extend this class (excep
 
 class Main {
 	static function main() {
-		File.saveContent("phong.vert", PhongShader.vertexSource);
-		File.saveContent("phong.frag", PhongShader.fragmentSource);
-		File.saveContent("phong_textured.vert", PhongShaderTextured.vertexSource);
-		File.saveContent("phong_textured.frag", PhongShaderTextured.fragmentSource);
+		// File.saveContent("phong.vert", PhongShader.vertexSource);
+		// File.saveContent("phong.frag", PhongShader.fragmentSource);
+		// File.saveContent("phong_textured.vert", PhongShaderTextured.vertexSource);
+		// File.saveContent("phong_textured.frag", PhongShaderTextured.fragmentSource);
+		AutoTyping;
+		ConstantFolding;
+		FunctionType;
+		GettingSources;
+		ImplicitCasts;
+		Inheritances;
+		Modules;
+		Overloads;
+		TypesAndVariables;
 	}
 }

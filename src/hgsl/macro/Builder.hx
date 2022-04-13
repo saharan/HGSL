@@ -323,44 +323,49 @@ class Builder {
 
 			final tweakedSuperFuncFields = [];
 			for (f in supEnv.getGlobalFuncs()) {
-				final origName = f.name;
-				// define the function with its original name,
-				// this one can be overridden
-				env.defineFunc(origName, f.type, f.args, f.region, f.expr, f.field, f.pos);
+				switch f.kind {
+					case BuiltIn:
+						throw ierror(macro "unexpected bult-in function");
+					case User(expr, field, _):
+						final origName = f.name;
+						// define the function with its original name,
+						// this one can be overridden
+						env.defineFunc(origName, f.type, f.args, f.region, expr, field, f.pos);
 
-				// also define the function with the tweaked name,
-				// this one cannot be overridden and can be accessed with super keyword
-				final tweakedName = switch env.resolveSuperFunctionName(origName) {
-					case null:
-						// this name is not registered yet, generate a unique name and register it for super function calls
-						// note that the tweaked name must be consistent because otherwise overload would not work properly
-						final tweakedName = env.tweakFunctionName(origName);
-						env.registerSuperFunctionNameAs(origName, tweakedName);
-						tweakedName;
-					case name:
-						// already registered, use it
-						name;
+						// also define the function with the tweaked name,
+						// this one cannot be overridden and can be accessed with super keyword
+						final tweakedName = switch env.resolveSuperFunctionName(origName) {
+							case null:
+								// this name is not registered yet, generate a unique name and register it for super function calls
+								// note that the tweaked name must be consistent because otherwise overload would not work properly
+								final tweakedName = env.tweakFunctionName(origName);
+								env.registerSuperFunctionNameAs(origName, tweakedName);
+								tweakedName;
+							case name:
+								// already registered, use it
+								name;
+						}
+						env.defineFunc(tweakedName, f.type, f.args, f.region, expr, field, f.pos);
+						tweakedSuperFuncFields.push({
+							name: tweakedName,
+							access: [AExtern, AOverload],
+							kind: FFun({
+								args: f.args.map(arg -> {
+									final res:FunctionArg = {
+										name: arg.name,
+										type: arg.type.toComplexType()
+									}
+									res;
+								}),
+								ret: f.type.toComplexType()
+							}),
+							pos: f.pos,
+							meta: [{
+								name: ":noCompletion",
+								pos: f.pos
+							}]
+						});
 				}
-				env.defineFunc(tweakedName, f.type, f.args, f.region, f.expr, f.field, f.pos);
-				tweakedSuperFuncFields.push({
-					name: tweakedName,
-					access: [AExtern, AOverload],
-					kind: FFun({
-						args: f.args.map(arg -> {
-							final res:FunctionArg = {
-								name: arg.name,
-								type: arg.type.toComplexType()
-							}
-							res;
-						}),
-						ret: f.type.toComplexType()
-					}),
-					pos: f.pos,
-					meta: [{
-						name: ":noCompletion",
-						pos: f.pos
-					}]
-				});
 			}
 
 			// collect field definitions
@@ -390,6 +395,7 @@ class Builder {
 								if (extraModifiers.length > 0)
 									throw error("no access modifier is allowed", pos);
 								access.resize(0);
+								access.push(AExtern);
 							}
 							var isUniform = false;
 							var varyingKind = null;
@@ -600,13 +606,15 @@ class Builder {
 										throw error("shader module cannot define a vertex entry point", pos);
 									if (args.length != 0)
 										throw error("vertex entry point cannot have arguments", pos);
-									if (type != TVoid) throw error("return type of a vertex entry point must be Void", pos);
+									if (type != TVoid)
+										throw error("return type of a vertex entry point must be Void", pos);
 								case "fragment":
 									if (module)
 										throw error("shader module cannot define a fragment entry point", pos);
 									if (args.length != 0)
 										throw error("fragment entry point cannot have arguments", pos);
-									if (type != TVoid) throw error("return type of a fragment entry point must be Void", pos);
+									if (type != TVoid)
+										throw error("return type of a fragment entry point must be Void", pos);
 							}
 							dummyFuncFields.push({
 								name: env.tweakFunctionName(name),
@@ -690,7 +698,8 @@ class Builder {
 
 			// add uniform variables
 			if (module) {
-				fields.push(generateConstsField(env.getGlobalVars().filter(v -> v.kind.match(Global(Const(_))))));
+				fields.push(generateConstsField(env.getGlobalVars()
+					.filter(v -> v.kind.match(Global(Const(_))) && !v.type.match(TFunc(_)))));
 			} else {
 				fields.push(generateUniformsField(env.getGlobalVars().filter(v -> v.kind == Uniform)));
 				fields.push(generateAttributesField(env.getGlobalVars().filter(v -> v.kind.match(Attribute(_)))));
@@ -826,6 +835,8 @@ class Builder {
 				macro Struct;
 			case TArray(_):
 				throw ierror(macro "unexpected array");
+			case TFunc(_) | TFuncUnknown:
+				throw ierror(macro "unexpected function type");
 		}
 	}
 

@@ -46,7 +46,7 @@ class Parser {
 	}
 
 	function collectBuiltInFields():Void {
-		for (field in globalClassType.data.statics.get().toGFields(true)) {
+		for (field in globalClassType.data.statics.get().toBuiltInFields()) {
 			switch field {
 				case FVar(v):
 					builtInVars.push(v);
@@ -69,8 +69,19 @@ class Parser {
 
 	function parseFuncImpl(env:Environment, pos:Position):String {
 		final target = env.target;
-		final rawName = env.module + "." + env.className + "." + target.name + "(" + target.args.map(arg -> arg.type.toString()).join(",") + "):"
-			+ target.type.toString();
+		var funcExpr;
+		var funcField;
+		var funcEnv;
+		switch target.kind {
+			case BuiltIn:
+				throw ierror(macro "cannot parse a built-in function");
+			case User(expr, field, env):
+				funcExpr = expr;
+				funcField = field;
+				funcEnv = env;
+		}
+		final rawName = env.module + "." + env.className + "." + target.name + "(" + target.args.map(arg -> arg.type.toString())
+			.join(",") + "):" + target.type.toString();
 		if (funcNameMap.exists(rawName)) {
 			// already parsed
 			return funcNameMap[rawName];
@@ -115,13 +126,13 @@ class Parser {
 			env.defineVar(arg.name, arg.type, Argument(In), null, pos);
 		}
 
-		final noBlockAtRoot = !target.expr.expr.match(EBlock(_));
+		final noBlockAtRoot = !funcExpr.expr.match(EBlock(_));
 		if (noBlockAtRoot) {
 			mainSource.add("{");
 			mainSource.increaseIndent();
 			mainSource.breakLine();
 		}
-		parseExpr(target.expr, mainSource, env, true, null, true);
+		parseExpr(funcExpr, mainSource, env, true, null, true);
 		if (noBlockAtRoot) {
 			mainSource.decreaseIndent();
 			mainSource.add("}");
@@ -480,7 +491,7 @@ class Parser {
 	}
 
 	function addFoldingConstant(srcFrom:Source, srcTo:Source, statement:Bool, cvalue:Null<ConstValue>):Void {
-		if (cvalue != null) {
+		if (cvalue != null && !cvalue.match(VFunc(_))) {
 			srcTo.add(cvalue.toSource(this));
 			if (statement)
 				srcTo.add(";");
@@ -489,7 +500,8 @@ class Parser {
 		}
 	}
 
-	public function parseExpr(e:Expr, src:Source, env:Environment, statement:Bool, expectedType:GType = null, isFuncRoot:Bool = false):GInternalType {
+	public function parseExpr(e:Expr, src:Source, env:Environment, statement:Bool, expectedType:GType = null,
+			isFuncRoot:Bool = false):GInternalType {
 		final source = new Source();
 		final res = parseExprWithoutConstantFolding(e, source, env, statement, expectedType, isFuncRoot);
 		addFoldingConstant(source, src, statement, res.cvalue);
@@ -573,10 +585,43 @@ class Parser {
 				final source = new Source();
 				final internalType = parseExpr(e, source, env, statement);
 				final type = internalType.type;
+
+				if (type.match(TFunc(_) | TFuncUnknown)) {
+					switch expectedType {
+						case TFunc(args, ret):
+							switch internalType.cvalue {
+								case null:
+									throw ierror(macro "function type variable must be a compile-time constant");
+								case VFunc(funcs):
+									switch funcs.filter(f -> f.args.length == args.length && f.args.zip(args, (a,
+											b) -> a.type.equals(b.type))
+										.all() && f.type.equals(ret)) {
+										case [f]:
+											return {
+												type: expectedType,
+												lvalue: false,
+												cvalue: VFunc([f])
+											}
+										case []:
+											throw error("no suitable overload found: " + expectedType.toString(), pos);
+										case _:
+											throw ierror(macro "multiple functions found");
+									}
+								case _:
+									throw ierror(macro "unexpected cvalue");
+							}
+						case TFuncUnknown:
+							throw ierror(macro "unknown function type must not be used as an expected type");
+						case _:
+							final msg = "unexpected expected type: " + expectedType.toString();
+							throw ierror(macro $v{msg});
+					}
+				}
+
 				var cvalue = if (type.canImplicitlyCast(expectedType)) {
 					addWithImplicitCast(source, internalType, expectedType).cvalue;
 				} else {
-					addTypesMismatchError(expectedType, type, e.pos);
+					addTypesMismatchError(expectedType, type, pos);
 					src.append(source);
 					null;
 				}
@@ -630,7 +675,8 @@ class Parser {
 										case BuiltIn(vkind):
 											if (v.name == s) {
 												switch ([kind, vkind]) {
-													case [Module, _] | [Vertex, VertexIn | VertexOut] | [Fragment, FragmentIn | FragmentOut]:
+													case [Module, _] | [Vertex, VertexIn | VertexOut] |
+														[Fragment, FragmentIn | FragmentOut]:
 													// ok
 													case [Fragment, _]:
 														addError("cannot access " + s + " from a fragment shader", pos);
@@ -654,8 +700,21 @@ class Parser {
 									}
 								}
 								if (val == null) {
-									addError("unknown identifier " + s, pos);
-									voidValue;
+									// maybe a built-in function
+									final funcs = builtInFuncs.filter(f -> f.name == s);
+									if (funcs.length == 0) {
+										addError("unknown identifier " + s, pos);
+										voidValue;
+									} else {
+										if (statement)
+											throw error("cannot use a function here", pos);
+										src.add(s);
+										{
+											type: TFuncUnknown,
+											lvalue: false,
+											cvalue: VFunc(funcs)
+										}
+									}
 								} else {
 									src.add(s);
 									val;
@@ -745,9 +804,15 @@ class Parser {
 											null;
 									}
 								}
-							case FFunc(_):
-								addError("unsupported function usage ", pos);
-								voidValue;
+							case FFunc(f):
+								src.add(f.name);
+								if (statement)
+									throw error("cannot use a function here", pos);
+								{
+									type: TFuncUnknown,
+									lvalue: false,
+									cvalue: VFunc(env.getLocalFuncsOfName(f.name))
+								}
 						}
 					case CInt(v):
 						src.add(v);
@@ -792,27 +857,63 @@ class Parser {
 				resType;
 			case EField(e, field):
 				final fieldChain = parseFieldChain(origExpr);
-				var externalType = null;
+				var externalType:GInternalType = null;
 				if (fieldChain != null) {
 					final pos = origExpr.pos;
-					if (fieldChain[0] == "super")
-						throw error("cannot use super here", pos);
-					if (fieldChain[0] == "this")
-						throw error("this is not supported", pos);
-					final localHit = env.resolveField(fieldChain[0]);
-					if (localHit == null) {
-						final cfa = resolveExternalClassFieldAccess(fieldChain, pos);
-						origExpr.expr = cfa.fullChain.toExpr(pos).expr;
+					final len = fieldChain.length;
+					switch fieldChain[0] {
+						case "this":
+							throw error("\"this\" is not supported", pos);
+						case "super":
+							switch len {
+								case 2:
+									final superName = fieldChain[1];
+									switch env.resolveSuperFunctionName(superName) {
+										case null:
+											throw error("could not find a super function " + superName, pos);
+										case name:
+											src.add(name);
+											if (statement)
+												throw error("cannot use a function here", pos);
+											// replace the original expr with the actual function name,
+											// since it can be resolved in a different context later
+											origExpr.expr = EConst(CIdent(name));
+											// super function might be overloaded
+											externalType = {
+												type: TFuncUnknown,
+												lvalue: false,
+												cvalue: VFunc(env.getLocalFuncsOfName(name))
+											}
+									}
+								case _:
+									throw error("invalid usage of super", pos);
+							}
+						case name:
+							final localHit = env.resolveField(name);
+							if (localHit == null) {
+								// replace the original expr with the full path,
+								// since it can be resolved in a different context later
+								final cfa = resolveExternalClassFieldAccess(fieldChain, pos);
+								origExpr.expr = cfa.fullChain.toExpr(pos).expr;
 
-						// resolve the field actually
-						final source = new Source();
-						final type = parseExpr(cfa.localChain.toExpr(pos), source, cfa.env, false);
-						if (type.cvalue == null)
-							throw error("external variable must have a compile-time const value", pos);
-						src.append(source);
-						if (statement)
-							src.add(";");
-						externalType = type;
+								// resolve the field actually
+								final source = new Source();
+								final type = parseExpr(cfa.localChain.toExpr(pos), source, cfa.env, false);
+								if (type.cvalue == null)
+									throw error("external variable must have a compile-time const value", pos);
+
+								switch type.type {
+									case TFunc(_) | TFuncUnknown:
+										if (statement)
+											throw error("cannot use a function here", pos);
+									case _:
+								}
+
+								src.append(source);
+								if (statement)
+									src.add(";");
+								externalType = type;
+							}
 					}
 				}
 				if (externalType != null) {
@@ -851,6 +952,8 @@ class Parser {
 					final baseType = first.type;
 					if (baseType.match(TArray(_)))
 						addError("multidimensional array is not supported", pos);
+					if (baseType.match(TFunc(_) | TFuncUnknown))
+						addError("array of functions is not supported", pos);
 					final rest = [for (i in 1...n) parseExpr(values[i], sources[i], env, false, baseType)];
 					final internalTypes = [first].concat(rest);
 					final arrayType = TArray(baseType, Resolved(n));
@@ -897,6 +1000,11 @@ class Parser {
 							field == null ? null : field.type;
 					}
 					final type = parseExpr(field.expr, source, env, false, expectedFieldType);
+					final pos = field.expr.pos;
+					if (type.type.match(TFunc(_) | TFuncUnknown))
+						throw error("structure must not contain a function", pos);
+					if (type.type.containsSampler())
+						throw error("cannot make a structure that contains a sampler", pos);
 					fieldVals.push({
 						name: field.field,
 						source: source,
@@ -905,7 +1013,7 @@ class Parser {
 					sfields.push({
 						name: field.field,
 						type: type.type,
-						pos: field.expr.pos
+						pos: pos
 					});
 				}
 				final structType = TStruct(sfields);
@@ -936,184 +1044,93 @@ class Parser {
 				}
 			case ECall(e, params):
 				final source = new Source();
-				if (e.toString() == "printConst") {
-					Context.info("" + parseExpr(params[0], source, env, false).cvalue, e.pos);
-					voidValue;
-				} else {
-					// check functions in the same class first
-					final fieldChain = parseFieldChain(e);
-					final pos = e.pos;
-					final calleeType = switch fieldChain {
-						case null: // not a field chain
-							CExpr;
-						case _:
-							final len = fieldChain.length;
-							switch fieldChain[0] {
-								case "this":
-									throw error("this is not supported", pos);
-								case "super":
-									switch len {
-										case 2:
-											final superName = fieldChain[1];
-											switch env.resolveSuperFunctionName(superName) {
-												case null:
-													throw error("could not find a super function " + superName, pos);
-												case name:
-													// replace the original expr with the actual function name,
-													// since it can be resolved in a different context later
-													e.expr = EConst(CIdent(name));
-													// super function might be overloaded
-													CFunc(name, env.getLocalFuncsOfName(name), null);
-											}
-										case _:
-											throw error("invalid usage of super", pos);
-									}
-								case _:
-									final localHit = env.resolveField(fieldChain[0]);
-									switch localHit {
-										case FVar(_):
-											switch len {
-												case 1:
-													throw error("cannot call a variable", pos);
-												case _:
-													CExpr;
-											}
-										case FFunc(f):
-											switch len {
-												case 1:
-													CFunc(f.name, env.getLocalFuncsOfName(f.name), null);
-												case _:
-													throw error("invalid function access", pos);
-											}
-										case null:
-											final st = Timer.stamp();
-											final res = switch len {
-												case 1:
-													// check built-in function access
-													switch builtInFuncs.filter(f -> f.name == fieldChain[0]) {
-														case []:
-															throw error("function expected", pos);
-														case funcs:
-															CFunc(fieldChain[0], funcs, globalClassType);
-													}
-												case _:
-													final cfa = resolveExternalClassFieldAccess(fieldChain, pos);
-													e.expr = cfa.fullChain.toExpr(pos).expr;
-													if (cfa.localChain.length != 1)
-														throw error("invalid function access", pos);
-													final name = cfa.localChain[0];
-													CFunc(name, cfa.env.getGlobalFuncsOfName(name), cfa.classType);
-											}
-											final en = Timer.stamp();
-											// Context.info((en - st) * 1000 + " ms", pos);
-											res;
-									}
+				final pos = e.pos;
+				final source = new Source();
+				final type = parseExpr(e, source, env, false);
+				if (!type.type.match(TFunc(_) | TFuncUnknown))
+					throw error("cannot call " + type.type.toString(), pos);
+				switch type.cvalue {
+					case null:
+						throw error("cannot determine function", pos);
+					case VFunc(funcs):
+						final sources = params.map(_ -> new Source());
+						final args = params.mapi((i, param) -> {
+							parseExpr(params[i], sources[i], env, false);
+						});
+						final name = funcs[0].name;
+
+						final funcinfo = switch funcs[0].kind {
+							case BuiltIn:
+								null;
+							case User(expr, _, env):
+								{expr: expr, env: env}
+						}
+						final isConstructor = funcs[0].ctor;
+						if (funcinfo == null && isConstructor) {
+							if (funcs.length > 1)
+								throw ierror(macro "built-in constructors must not be overloaded");
+							final func = funcs[0];
+							src.add(name);
+							src.add("(");
+							for (i in 0...sources.length) {
+								if (i > 0)
+									src.add(", ");
+								src.append(sources[i]);
 							}
-					}
+							src.add(")");
+							if (statement)
+								src.add(";");
 
-					final sources = params.map(_ -> new Source());
-					final args = params.mapi((i, param) -> {
-						parseExpr(params[i], sources[i], env, false);
-					});
+							constructType(func.type, args, pos);
+						} else {
+							final func = funcs[args.map(arg -> arg.type).resolveOverload(funcs, pos)];
+							final expectedArgTypes = func.args.map(arg -> arg.type);
+							final funcNameIndex = src.add("");
+							var realName = name;
 
-					switch calleeType {
-						case CExpr:
-							switch e.expr {
-								case EField(callee, name):
-									final internalType = parseExpr(callee, src, env, false);
-									switch [internalType.type, name] {
-										case [TArray(_, size), "length"]:
-											switch size {
-												case Resolved(count):
-													if (sources.length > 0)
-														throw error("invalid number of arguments", pos);
-													src.add("()");
-													if (statement)
-														src.add(";");
-													{
-														type: TInt,
-														lvalue: false,
-														cvalue: VScalar(VInt(count))
-													}
-												case Delayed(_):
-													throw error("array size must be resolved here", pos);
-											}
-										case _:
-											throw error("function " + name + " not found in " + internalType.type.toString(), pos);
-									}
+							switch [func.region, kind] {
+								case [Vertex, Fragment]:
+									addError("cannot call " + name + " from a fragment shader", pos);
+								case [Fragment, Vertex]:
+									addError("cannot call " + name + " from a vertex shader", pos);
 								case _:
-									throw error("unsupported function call", pos);
 							}
-						case CFunc(name, funcs, classType):
-							final isLocal = classType == null;
-							final isBuiltIn = !isLocal && classType.module == GLOBAL_MODULE_PATH;
-							final isConstructor = funcs[0].ctor;
-							if (isBuiltIn && isConstructor) {
-								if (funcs.length > 1)
-									throw ierror(macro "built-in constructors must not be overloaded");
-								final func = funcs[0];
-								src.add(name);
-								src.add("(");
-								for (i in 0...sources.length) {
-									if (i > 0)
-										src.add(", ");
-									src.append(sources[i]);
-								}
-								src.add(")");
-								if (statement)
-									src.add(";");
 
-								constructType(func.type, args, pos);
+							final noParentheses = if (funcinfo == null && name == "discard") {
+								if (!statement)
+									throw error("cannot call discard in this form", pos);
+								true;
 							} else {
-								final callee = funcs[args.map(arg -> arg.type).resolveOverload(funcs, pos)];
-								final expectedArgTypes = callee.args.map(arg -> arg.type);
-								final funcNameIndex = src.add("");
-								var realName = name;
-
-								switch [callee.region, kind] {
-									case [Vertex, Fragment]:
-										addError("cannot call " + name + " from a fragment shader", pos);
-									case [Fragment, Vertex]:
-										addError("cannot call " + name + " from a vertex shader", pos);
-									case _:
-								}
-
-								final noParentheses = if (isBuiltIn && name == "discard") {
-									if (!statement)
-										throw error("cannot call discard in this form", pos);
-									true;
-								} else {
-									false;
-								}
-
-								if (!noParentheses)
-									src.add("(");
-								for (i in 0...sources.length) {
-									if (i > 0)
-										src.add(", ");
-									addWithImplicitCast(sources[i], args[i], expectedArgTypes[i]);
-								}
-								if (!noParentheses)
-									src.add(")");
-								if (statement)
-									src.add(";");
-
-								if (!isBuiltIn) {
-									// parse recursively
-									final env = isLocal ? env.copyGlobal() : Environment.ofClassType(classType);
-									env.setTargetFunc(callee);
-									if (callee.expr == null)
-										throw ierror(macro "no core expr");
-									realName = parseFuncImpl(env, pos);
-								}
-								src.modify(funcNameIndex, realName);
-								{
-									type: callee.type,
-									lvalue: false,
-									cvalue: null
-								}
+								false;
 							}
-					}
+
+							if (!noParentheses)
+								src.add("(");
+							for (i in 0...sources.length) {
+								if (i > 0)
+									src.add(", ");
+								addWithImplicitCast(sources[i], args[i], expectedArgTypes[i]);
+							}
+							if (!noParentheses)
+								src.add(")");
+							if (statement)
+								src.add(";");
+
+							if (funcinfo != null) {
+								// parse recursively
+								final env = funcinfo.env.copyGlobal();
+								env.setTargetFunc(func);
+								realName = parseFuncImpl(env, pos);
+							}
+							src.modify(funcNameIndex, realName);
+							{
+								type: func.type,
+								lvalue: false,
+								cvalue: null
+							}
+						}
+					case _:
+						throw ierror(macro "expected functions");
 				}
 			case EUnop(op, postFix, e):
 				if (!postFix)
@@ -1130,13 +1147,13 @@ class Parser {
 				for (v in vars) {
 					final source = new Source();
 					if (v.type == null && v.expr == null) {
-						addError("auto typing without an initial value is not supported", e.pos);
+						addError("auto typing without an initial value is not supported", pos);
 						continue;
 					}
 					final isConst = v.isFinal;
-					final typeTokenIndex = source.add("");
+					final typeTokenIndex = source.add("<unknown type>");
 					source.add(" ");
-					var type = v.type == null ? null : resolveArraySize(env, v.type.toGType(e.pos), e.pos);
+					var type = v.type == null ? null : resolveArraySize(env, v.type.toGType(pos), pos);
 					var cvalue = null;
 					source.add(v.name);
 					if (v.expr == null) {
@@ -1150,14 +1167,36 @@ class Parser {
 							type = rhs.type;
 						}
 					}
+					var isFuncType = false;
 					if (type == TVoid) {
 						addError("variable type must not be void", pos);
 					} else {
+						if (type.match(TFunc(_) | TFuncUnknown)) {
+							switch cvalue {
+								case null:
+									addError("function type variable must be a compile-time constant", pos);
+									continue;
+								case VFunc([f]):
+									if (f.ctor) {
+										addError("cannot bind a type constructor to a variable", pos);
+										continue;
+									}
+									type = TFunc(f.args.map(arg -> {name: arg.name, type: arg.type}), f.type);
+									isFuncType = true;
+								case VFunc(_):
+									addError("ambiguous reference to a function", pos);
+									continue;
+								case _:
+									throw ierror(macro "unexpected cvalue");
+							}
+						}
 						v.type = type.toComplexType();
 					}
 					source.add(";");
 					source.breakLine();
-					source.modify(typeTokenIndex, type.toGLSLType(this));
+					if (!isFuncType) {
+						source.modify(typeTokenIndex, type.toGLSLType(this));
+					}
 					env.defineVar(v.name, type, Local(isConst ? cvalue != null ? Const(cvalue) : Immutable : Mutable), null, pos);
 					if (isConst && cvalue != null) {
 						// no source generation because all compile-time constants will be completely folded

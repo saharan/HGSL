@@ -1,5 +1,6 @@
 package hgsl.macro;
 
+import haxe.CallStack;
 #if macro
 import haxe.macro.Context;
 
@@ -20,7 +21,10 @@ function error(message:String, pos:Position):GError {
 
 // return an internal error, which is less likely an user's fault
 function ierror(messageExpr:Expr):GError {
-	return new GError(cast messageExpr.getValue(), messageExpr.pos);
+	final msg:String = cast messageExpr.getValue();
+	msg += " (from " + Context.currentPos() + ")";
+	msg += "\n" + CallStack.toString(CallStack.callStack());
+	return new GError(msg, messageExpr.pos);
 }
 
 final errors:Array<GError> = [];

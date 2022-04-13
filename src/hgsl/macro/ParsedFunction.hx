@@ -1,5 +1,6 @@
 package hgsl.macro;
 
+#if macro
 class ParsedFunction {
 	public final name:String;
 	public final returnType:GType;
@@ -13,3 +14,4 @@ class ParsedFunction {
 		source = new Source();
 	}
 }
+#end

@@ -1,7 +1,6 @@
 package hgsl.macro;
 
 import haxe.Exception;
-import haxe.Timer;
 import haxe.macro.Context;
 
 #if macro
@@ -142,6 +141,10 @@ class Tools {
 							TPExpr(path);
 					}]
 				});
+			case TFunc(args, res):
+				TFunction(args.map(arg -> TNamed(arg.name, toComplexType(arg.type))), toComplexType(res));
+			case TFuncUnknown:
+				throw ierror(macro "unexpected unknown function type");
 		}
 	}
 
@@ -238,6 +241,8 @@ class Tools {
 					case Delayed(_):
 						throw ierror(macro "array size must have been resolved");
 				}) + "]";
+			case TFunc(_) | TFuncUnknown:
+				throw ierror(macro "function type cannot be converted into a GLSL type");
 		}
 	}
 
@@ -374,6 +379,10 @@ class Tools {
 					case Delayed(_):
 						"<unknown>";
 				}) + "]";
+			case TFunc(args, res):
+				"(" + args.map(arg -> gtypeToString(arg.type)).join(", ") + ") -> " + gtypeToString(res);
+			case TFuncUnknown:
+				"(<unknown>) -> <unknown>";
 		}
 	}
 
@@ -649,6 +658,28 @@ class Tools {
 	}
 
 	public static function resolveFieldAccess(type:GInternalType, field:String, pos:Position):GInternalType {
+		if (field == "length") {
+			final fixedLength = switch type.type {
+				case TVec2 | TIVec2 | TUVec2 | TBVec2 | TMat2x2 | TMat2x3 | TMat2x4:
+					2;
+				case TVec3 | TIVec3 | TUVec3 | TBVec3 | TMat3x3 | TMat3x2 | TMat3x4:
+					3;
+				case TVec4 | TIVec4 | TUVec4 | TBVec4 | TMat4x4 | TMat4x2 | TMat4x3:
+					4;
+				case TArray(_, Resolved(count)):
+					count;
+				case TArray(_, _):
+					throw ierror(macro "array size must be resolved here");
+				case _:
+					null;
+			}
+			if (fixedLength != null)
+				return {
+					type: TInt,
+					lvalue: false,
+					cvalue: VScalar(VInt(fixedLength))
+				}
+		}
 		switch type.type {
 			case TVec2 | TVec3 | TVec4 | TIVec2 | TIVec3 | TIVec4 | TUVec2 | TUVec3 | TUVec4 | TBVec2 | TBVec3 | TBVec4:
 				return resolveSwizzle(type, field, pos);
@@ -875,7 +906,7 @@ class Tools {
 		}
 	}
 
-	public static function toGFields(fields:Array<ClassField>, builtIn:Bool):Array<GField> {
+	public static function toBuiltInFields(fields:Array<ClassField>):Array<GField> {
 		final res:Array<GField> = [];
 		for (field in fields.flatMap(field -> [field].concat(field.overloads.get()))) {
 			final pos = field.pos;
@@ -891,8 +922,6 @@ class Tools {
 					All;
 			}
 			if (meta.has(":ctor")) {
-				if (!builtIn)
-					throw error("only a built-in function can be a constructor", pos);
 				switch field.type {
 					case TFun(args, ret):
 						res.push(FFunc({
@@ -901,50 +930,36 @@ class Tools {
 							ctor: true,
 							type: ret.toComplexType().toGType(pos),
 							args: [],
-							expr: null,
-							pos: pos,
-							field: null
+							kind: BuiltIn,
+							pos: pos
 						}));
 					case _:
 						throw ierror(macro "internal error");
 				}
 				continue;
 			}
-			final expr = switch meta.extract(":coreExpr") {
-				case [_.params => [expr]]:
-					expr;
-				case _:
-					null;
-			}
 			switch field.kind {
 				case FVar(_):
-					if (region == All && builtIn) {
+					if (region == All) {
 						throw error("invalid region specification", pos);
 					}
 					res.push(FVar({
 						name: field.name,
-						type: builtIn ? field.type.toComplexType().toGType(pos) : TVoid,
-						kind: builtIn ? BuiltIn(switch region {
+						type: field.type.toComplexType().toGType(pos),
+						kind: BuiltIn(switch region {
 							case Vertex:
 								field.isFinal ? VertexIn : VertexOut;
 							case Fragment:
 								field.isFinal ? FragmentIn : FragmentOut;
 							case _:
 								throw ierror(macro "internal error");
-						}) : switch (expr) {
-							case null:
-								throw error("core expression must exist", pos);
-							case _:
-								GlobalConstUnparsed(expr);
-						},
+						}),
 						pos: field.pos,
 						field: null
 					}));
 				case FMethod(_):
 					switch field.type {
 						case TFun(args, ret):
-							if (!builtIn && expr == null)
-								throw error("core expression must exist", pos);
 							res.push(FFunc({
 								name: field.name,
 								region: region,
@@ -959,9 +974,8 @@ class Tools {
 										isRef: false
 									}
 								}),
-								expr: expr,
-								pos: pos,
-								field: null
+								kind: BuiltIn,
+								pos: pos
 							}));
 						case _:
 					}
@@ -1106,6 +1120,8 @@ class Tools {
 				fields.map(f -> containsSampler(f.type)).has(true);
 			case TArray(type, _):
 				containsSampler(type);
+			case TFunc(_) | TFuncUnknown:
+				false;
 		}
 	}
 
@@ -1144,6 +1160,10 @@ class Tools {
 		}
 	}
 
+	public static function isOkayForReturn(type:GType):Bool {
+		return !type.containsSampler() && !type.match(TFunc(_));
+	}
+
 	public static function equals(a:GType, b:GType, sortFields:Bool = false):Bool {
 		return switch [a, b] {
 			case [
@@ -1151,7 +1171,7 @@ class Tools {
 				TVoid | TFloat | TVec2 | TVec3 | TVec4 | TInt | TIVec2 | TIVec3 | TIVec4 | TUInt | TUVec2 | TUVec3 | TUVec4 | TBool | TBVec2 | TBVec3 | TBVec4 | TMat2x2 | TMat3x3 | TMat4x4 | TMat2x3 | TMat3x2 | TMat2x4 | TMat4x2 | TMat3x4 | TMat4x3 | TSampler2D | TSampler3D | TSamplerCube | TSamplerCubeShadow | TSampler2DShadow | TSampler2DArray | TSampler2DArrayShadow | TISampler2D | TISampler3D | TISamplerCube | TISampler2DArray | TUSampler2D | TUSampler3D | TUSamplerCube | TUSampler2DArray
 			]:
 				a == b;
-			case [TStruct(a), TStruct(b)]:
+			case [TStruct(a), TStruct(b)]: //
 				if (sortFields) {
 					a = a.copy();
 					b = b.copy();
@@ -1159,8 +1179,10 @@ class Tools {
 					b.sort((a, b) -> Reflect.compare(a.name, b.name));
 				}
 				a.length == b.length && zip(a, b, (a, b) -> a.name == b.name && equals(a.type, b.type, sortFields)).all();
-			case [TArray(ta, sizea), TArray(tb, sizeb)]:
+			case [TArray(ta, sizea), TArray(tb, sizeb)]: //
 				sizea.equals(sizeb) && equals(ta, tb, sortFields);
+			case [TFunc(aa, ra), TFunc(ab, rb)]: //
+				aa.length == ab.length && zip(aa, ab, (a, b) -> equals(a.type, b.type, sortFields)).all() && equals(ra, rb, sortFields);
 			case _:
 				false;
 		}

@@ -1,11 +1,13 @@
 package hgsl.macro.constant;
 
+#if macro
 enum ConstValue {
 	VScalar(v:ScalarConstValue);
 	VVector(v:VectorConstValue);
 	VMatrix(v:MatrixConstValue);
 	VStruct(v:Array<{name:String, value:ConstValue}>);
 	VArray(vs:Array<ConstValue>);
+	VFunc(funcs:Array<GFunc>);
 }
 
 enum ScalarConstValue {
@@ -25,3 +27,4 @@ enum VectorConstValue {
 enum MatrixConstValue {
 	VMat(v:MatBase);
 }
+#end

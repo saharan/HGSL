@@ -128,6 +128,8 @@ enum GType {
 	TUSampler2DArray;
 	TStruct(fields:GStructFields);
 	TArray(type:GType, size:ArraySize);
+	TFunc(args:Array<{name:String, type:GType}>, ret:GType);
+	TFuncUnknown;
 }
 
 enum ArraySize {
@@ -220,12 +222,16 @@ typedef GFuncBase = {
 	args:Array<GFuncArg>,
 }
 
+enum GFuncKind {
+	BuiltIn;
+	User(expr:Expr, field:Field, env:Environment);
+}
+
 typedef GFunc = GFuncBase & {
 	name:String,
 	region:GFuncRegion,
 	ctor:Bool,
-	expr:Null<Expr>,
-	field:Null<Field>,
+	kind:GFuncKind,
 	pos:Position
 }
 
@@ -242,7 +248,7 @@ enum GShaderKind {
 
 enum CalleeType {
 	CExpr;
-	CFunc(name:String, funcs:Array<GFunc>, classType:Null<ClassType>);
+	CFunc(name:String, funcs:Array<GFunc>);
 }
 
 enum ConstructorKind {

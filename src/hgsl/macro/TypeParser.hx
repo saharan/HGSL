@@ -3,13 +3,40 @@ package hgsl.macro;
 import haxe.macro.Context;
 
 #if macro
+private typedef TypeContext = {
+	paths:Array<String>,
+	inArray:Bool,
+	inArrayDirect:Bool,
+	inStruct:Bool
+}
+
 class TypeParser {
 	static final cache:Map<String, GType> = [];
 
-	public static function parseType(t:ComplexType, pos:Position, allowVoid:Bool = false, paths:Array<String> = null,
-			inArray:Bool = false):GType {
-		if (paths == null)
-			paths = [];
+	static function makePathFull(t:ComplexType):ComplexType {
+		return switch t {
+			case TFunction(args, ret):
+				return TFunction(args.map(makePathFull), makePathFull(ret));
+			case TNamed(n, t):
+				return TNamed(n, makePathFull(t));
+			case TParent(t):
+				return TParent(makePathFull(t));
+			case TOptional(t):
+				return TOptional(makePathFull(t));
+			case _:
+				return t.toType().toComplexType();
+		}
+	}
+
+	public static function parseType(t:ComplexType, pos:Position, allowVoid:Bool = false, context:TypeContext = null):GType {
+		if (context == null) {
+			context = {
+				paths: [],
+				inArray: false,
+				inArrayDirect: false,
+				inStruct: false
+			}
+		}
 		switch t {
 			case TPath(p) if (p.params != null && p.params.length > 0):
 				// avoid evaluating type parameters at this stage
@@ -38,7 +65,7 @@ class TypeParser {
 					});
 				}
 			case _:
-				t = t.toType().toComplexType(); // get a complete path
+				t = makePathFull(t); // get a complete path
 		}
 		final str = t.toString();
 		if (cache.exists(str))
@@ -146,7 +173,7 @@ class TypeParser {
 					case [TYPES_MODULE_PATH, USAMPLER2DARRAY_NAME]:
 						TUSampler2DArray;
 					case [TYPES_MODULE_PATH, ARRAY_NAME]:
-						if (inArray)
+						if (context.inArrayDirect)
 							addError("multidimensional array is not supported", pos);
 						final params = p.params;
 						if (params.length != 2) {
@@ -171,7 +198,12 @@ class TypeParser {
 							} else {
 								switch params[0] {
 									case TPType(t):
-										final type = parseType(t, pos, false, paths, true);
+										final type = parseType(t, pos, false, {
+											paths: context.paths,
+											inArray: true,
+											inArrayDirect: true,
+											inStruct: context.inStruct
+										});
 										TArray(type, size);
 									case _:
 										addError("invalid array type", pos);
@@ -184,11 +216,13 @@ class TypeParser {
 						final type = switch t {
 							case TInst(_.get() => t, _) if (t.superClass != null && t.superClass.t.get().module == STRUCT_MODULE_PATH):
 								switch t.fields.get() {
-									case [{
-										name: "struct",
-										type: type
-									}]:
-										parseType(type.toComplexType(), t.pos);
+									case [
+										{
+											name: "struct",
+											type: type
+										}
+									]:
+										parseType(type.toComplexType(), t.pos, false, context);
 									case _:
 										addError("recursion in structure fields found", pos);
 										TVoid;
@@ -196,11 +230,10 @@ class TypeParser {
 							case TType(_.get() => def, _): // typedef found, try following it
 								switch t.follow() {
 									case TAnonymous(_.get() => a):
-										addError("typedef for anonymous structure is not supported; use " + STRUCT_MODULE_PATH +
-											" instead", def.pos);
+										addError("typedef for anonymous structure is not supported; use " + STRUCT_MODULE_PATH + " instead", def.pos);
 										TVoid;
 									case type:
-										parseType(type.toComplexType(), pos);
+										parseType(type.toComplexType(), pos, false, context);
 								}
 							case _:
 								null;
@@ -221,7 +254,7 @@ class TypeParser {
 					fields.sort((a, b) -> Context.getPosInfos(a.pos).min - Context.getPosInfos(b.pos).min);
 					final firstPos = Context.getPosInfos(fields[0].pos);
 					final path = firstPos.file + ";" + firstPos.min + ";" + firstPos.max;
-					if (paths.indexOf(path) != -1) {
+					if (context.paths.indexOf(path) != -1) {
 						addError("recursion in structure fields found", pos);
 						TVoid;
 					} else {
@@ -234,7 +267,12 @@ class TypeParser {
 										addError("type must be specified", pos);
 									} else {
 										final name = field.name;
-										final type = parseType(t, field.pos, paths.concat([path]));
+										final type = parseType(t, field.pos, false, {
+											paths: context.paths.concat([path]),
+											inArray: context.inArray,
+											inArrayDirect: false,
+											inStruct: true
+										});
 										anonFields.push({
 											name: name,
 											type: type,
@@ -248,6 +286,36 @@ class TypeParser {
 							}
 						}
 						TStruct(anonFields);
+					}
+				}
+			case TFunction(args, ret):
+				if (context.inArray || context.inStruct) {
+					addError("cannot use function type inside an array or struct", pos);
+					TVoid;
+				} else {
+					try {
+						TFunc(args.map(arg -> switch arg {
+							case TNamed(n, t):
+								{
+									name: n,
+									type: parseType(t, pos, false, {
+										paths: context.paths,
+										inArray: context.inArray,
+										inArrayDirect: false,
+										inStruct: context.inStruct
+									})
+								}
+							case _:
+								throw error("expected named type", pos);
+						}), parseType(ret, pos, true, {
+							paths: context.paths,
+							inArray: context.inArray,
+							inArrayDirect: false,
+							inStruct: context.inStruct
+						}));
+					} catch (e:GError) {
+						addError(e.message, e.pos);
+						TVoid;
 					}
 				}
 			case _:

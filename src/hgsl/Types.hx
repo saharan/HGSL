@@ -11,6 +11,10 @@ extern abstract Int from StdTypes.Int to StdTypes.Int to UInt to Float {
 @:coreType
 @:build(hgsl.macro.Builder.buildBaseType())
 extern abstract IVec2 to UVec2 to Vec2 {
+	var length(get, never):Int;
+
+	private function get_length():Int;
+
 	@:op([])
 	private function get(i:Int):Int;
 
@@ -21,6 +25,10 @@ extern abstract IVec2 to UVec2 to Vec2 {
 @:coreType
 @:build(hgsl.macro.Builder.buildBaseType())
 extern abstract IVec3 to UVec3 to Vec3 {
+	var length(get, never):Int;
+
+	private function get_length():Int;
+
 	@:op([])
 	private function get(i:Int):Int;
 
@@ -31,6 +39,10 @@ extern abstract IVec3 to UVec3 to Vec3 {
 @:coreType
 @:build(hgsl.macro.Builder.buildBaseType())
 extern abstract IVec4 to UVec4 to Vec4 {
+	var length(get, never):Int;
+
+	private function get_length():Int;
+
 	@:op([])
 	private function get(i:Int):Int;
 
@@ -49,6 +61,10 @@ extern abstract UInt from StdTypes.Int to Float {
 @:coreType
 @:build(hgsl.macro.Builder.buildBaseType())
 extern abstract UVec2 to Vec2 {
+	var length(get, never):Int;
+
+	private function get_length():Int;
+
 	@:op([])
 	private function get(i:Int):UInt;
 
@@ -59,6 +75,10 @@ extern abstract UVec2 to Vec2 {
 @:coreType
 @:build(hgsl.macro.Builder.buildBaseType())
 extern abstract UVec3 to Vec3 {
+	var length(get, never):Int;
+
+	private function get_length():Int;
+
 	@:op([])
 	private function get(i:Int):UInt;
 
@@ -69,6 +89,10 @@ extern abstract UVec3 to Vec3 {
 @:coreType
 @:build(hgsl.macro.Builder.buildBaseType())
 extern abstract UVec4 to Vec4 {
+	var length(get, never):Int;
+
+	private function get_length():Int;
+
 	@:op([])
 	private function get(i:Int):UInt;
 
@@ -87,6 +111,10 @@ extern abstract Float from StdTypes.Float {
 @:coreType
 @:build(hgsl.macro.Builder.buildBaseType())
 extern abstract Vec2 {
+	var length(get, never):Int;
+
+	private function get_length():Int;
+
 	@:op([])
 	private function get(i:Int):Float;
 
@@ -97,6 +125,10 @@ extern abstract Vec2 {
 @:coreType
 @:build(hgsl.macro.Builder.buildBaseType())
 extern abstract Vec3 {
+	var length(get, never):Int;
+
+	private function get_length():Int;
+
 	@:op([])
 	private function get(i:Int):Float;
 
@@ -107,6 +139,10 @@ extern abstract Vec3 {
 @:coreType
 @:build(hgsl.macro.Builder.buildBaseType())
 extern abstract Vec4 {
+	var length(get, never):Int;
+
+	private function get_length():Int;
+
 	@:op([])
 	private function get(i:Int):Float;
 
@@ -125,6 +161,10 @@ extern abstract Bool from StdTypes.Bool to StdTypes.Bool {
 @:coreType
 @:build(hgsl.macro.Builder.buildBaseType())
 extern abstract BVec2 {
+	var length(get, never):Int;
+
+	private function get_length():Int;
+
 	@:op([])
 	private function get(i:Int):Bool;
 
@@ -135,6 +175,10 @@ extern abstract BVec2 {
 @:coreType
 @:build(hgsl.macro.Builder.buildBaseType())
 extern abstract BVec3 {
+	var length(get, never):Int;
+
+	private function get_length():Int;
+
 	@:op([])
 	private function get(i:Int):Bool;
 
@@ -145,6 +189,10 @@ extern abstract BVec3 {
 @:coreType
 @:build(hgsl.macro.Builder.buildBaseType())
 extern abstract BVec4 {
+	var length(get, never):Int;
+
+	private function get_length():Int;
+
 	@:op([])
 	private function get(i:Int):Bool;
 
@@ -161,6 +209,10 @@ typedef Mat4 = Mat4x4;
 @:coreType
 @:build(hgsl.macro.Builder.buildBaseType())
 extern abstract Mat2x2 {
+	var length(get, never):Int;
+
+	private function get_length():Int;
+
 	@:op([])
 	private function get(i:Int):Vec2;
 
@@ -171,6 +223,10 @@ extern abstract Mat2x2 {
 @:coreType
 @:build(hgsl.macro.Builder.buildBaseType())
 extern abstract Mat3x3 {
+	var length(get, never):Int;
+
+	private function get_length():Int;
+
 	@:op([])
 	private function get(i:Int):Vec3;
 
@@ -181,6 +237,10 @@ extern abstract Mat3x3 {
 @:coreType
 @:build(hgsl.macro.Builder.buildBaseType())
 extern abstract Mat4x4 {
+	var length(get, never):Int;
+
+	private function get_length():Int;
+
 	@:op([])
 	private function get(i:Int):Vec4;
 
@@ -191,6 +251,10 @@ extern abstract Mat4x4 {
 @:coreType
 @:build(hgsl.macro.Builder.buildBaseType())
 extern abstract Mat2x3 {
+	var length(get, never):Int;
+
+	private function get_length():Int;
+
 	@:op([])
 	private function get(i:Int):Vec3;
 
@@ -201,6 +265,10 @@ extern abstract Mat2x3 {
 @:coreType
 @:build(hgsl.macro.Builder.buildBaseType())
 extern abstract Mat3x2 {
+	var length(get, never):Int;
+
+	private function get_length():Int;
+
 	@:op([])
 	private function get(i:Int):Vec2;
 
@@ -211,6 +279,10 @@ extern abstract Mat3x2 {
 @:coreType
 @:build(hgsl.macro.Builder.buildBaseType())
 extern abstract Mat2x4 {
+	var length(get, never):Int;
+
+	private function get_length():Int;
+
 	@:op([])
 	private function get(i:Int):Vec4;
 
@@ -221,6 +293,10 @@ extern abstract Mat2x4 {
 @:coreType
 @:build(hgsl.macro.Builder.buildBaseType())
 extern abstract Mat4x2 {
+	var length(get, never):Int;
+
+	private function get_length():Int;
+
 	@:op([])
 	private function get(i:Int):Vec2;
 
@@ -231,6 +307,10 @@ extern abstract Mat4x2 {
 @:coreType
 @:build(hgsl.macro.Builder.buildBaseType())
 extern abstract Mat3x4 {
+	var length(get, never):Int;
+
+	private function get_length():Int;
+
 	@:op([])
 	private function get(i:Int):Vec4;
 
@@ -241,6 +321,10 @@ extern abstract Mat3x4 {
 @:coreType
 @:build(hgsl.macro.Builder.buildBaseType())
 extern abstract Mat4x3 {
+	var length(get, never):Int;
+
+	private function get_length():Int;
+
 	@:op([])
 	private function get(i:Int):Vec3;
 
@@ -316,7 +400,9 @@ extern abstract USampler2DArray {
 
 @:coreType
 extern abstract Array<T, @:const N:StdTypes.Int> from std.Array<T> {
-	function length():Int;
+	var length(get, never):Int;
+
+	private function get_length():Int;
 
 	@:noCompletion
 	function iterator():Iterator<T>;

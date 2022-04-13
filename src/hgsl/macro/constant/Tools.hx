@@ -245,7 +245,7 @@ class Tools {
 		}
 	}
 
-	public static inline function getType(v:ConstValue):GType {
+	static inline function getType(v:ConstValue):GType {
 		return switch v {
 			case VScalar(v):
 				switch v {
@@ -308,9 +308,11 @@ class Tools {
 			case VMatrix(_):
 				throw ierror(macro "invalid matrix value");
 			case VStruct(v):
-				TStruct(v.map(v -> {name: v.name, type: v.value.getType(), pos: Context.currentPos()}));
+				TStruct(v.map(v -> {name: v.name, type: getType(v.value), pos: Context.currentPos()}));
 			case VArray(v):
-				TArray(v[0].getType(), Resolved(v.length));
+				TArray(getType(v[0]), Resolved(v.length));
+			case VFunc(_):
+				throw ierror(macro "unexpected function type");
 		}
 	}
 
@@ -359,6 +361,8 @@ class Tools {
 				v.getType().toGLSLType(parser) + "(" + vs.map(f -> f.value.toSource(parser)).join(", ") + ")";
 			case VArray(vs):
 				v.getType().toGLSLType(parser) + "(" + vs.map(v -> toSource(v, parser)).join(", ") + ")";
+			case VFunc(_):
+				throw ierror(macro "cannot transform function types to source");
 		}
 	}
 
@@ -537,6 +541,8 @@ class Tools {
 				}
 			case VArray(vs):
 				return macro $a{vs.map(v -> v.toExpr())};
+			case VFunc(_):
+				throw ierror(macro "unexpected function type");
 		}
 	}
 }
