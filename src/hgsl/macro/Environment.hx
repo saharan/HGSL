@@ -6,14 +6,13 @@ import haxe.macro.Context;
 class Environment {
 	public var module:String;
 	public var className:String;
-	public var targetReturnType:GType;
 	public var withinClass:ClassType;
 
 	public final passedFuncs:Array<GFunc> = [];
 
 	final scopes:Array<Array<GField>> = [[]];
 
-	final tempVariables:Array<TempVariable> = [];
+	final tempVariables:Array<Placeholder> = [];
 	final superFuncNameMap:Map<String, String> = [];
 
 	// we have to mark this map persistent, since some of the shaders may be cached and not going to be built
@@ -24,19 +23,11 @@ class Environment {
 
 	final ID = ++idcount;
 
+	var localFunctionScopeDepth:Int = 0;
+
 	public function new(module:String, className:String) {
 		this.module = module;
 		this.className = className;
-	}
-
-	public function copyGlobal():Environment {
-		final res = new Environment(module, className);
-		res.withinClass = withinClass;
-		res.scopes[0] = scopes[0];
-		for (origName => name in superFuncNameMap) {
-			res.superFuncNameMap[origName] = name;
-		}
-		return res;
 	}
 
 	static function generateKey(module:String, name:String):String {
@@ -55,6 +46,30 @@ class Environment {
 		envMap[key] = env;
 	}
 
+	public function copyGlobal():Environment {
+		final res = new Environment(module, className);
+		res.withinClass = withinClass;
+		res.scopes[0] = scopes[0];
+		for (origName => name in superFuncNameMap) {
+			res.superFuncNameMap[origName] = name;
+		}
+		return res;
+	}
+
+	public function copyLocalSnapshot():Environment {
+		final res = new Environment(module, className);
+		res.withinClass = withinClass;
+		res.scopes.resize(0);
+		for (scope in scopes) {
+			res.scopes.push(scope.copy());
+		}
+		for (origName => name in superFuncNameMap) {
+			res.superFuncNameMap[origName] = name;
+		}
+		res.localFunctionScopeDepth = scopes.length;
+		return res;
+	}
+
 	public function registerSuperFunctionNameAs(origName:String, name:String):Void {
 		superFuncNameMap[origName] = name;
 	}
@@ -64,16 +79,8 @@ class Environment {
 	}
 
 	public function tweakFunctionName(name:String):String {
-		final regex = ~/^_(.*)_[0-9]+$/;
-		final origName = regex.match(name) ? regex.matched(1) : name;
-		var count = 0;
-		while (true) {
-			final newName = "_" + origName + "_" + count;
-			if (resolveField(newName) == null && ![for (_ => superName in superFuncNameMap) superName].contains(newName)) {
-				return newName;
-			}
-			count++;
-		}
+		final existingNames = [for (_ => superName in superFuncNameMap) superName];
+		return name.tweakIdentifier(name -> resolveField(name) == null && !existingNames.contains(name), true);
 	}
 
 	public function pushScope():Void {
@@ -106,7 +113,7 @@ class Environment {
 					}
 				case FFunc(f):
 					switch f.kind {
-						case BuiltIn:
+						case BuiltIn | BuiltInConstructor:
 							throw ierror(macro "unexpected built-in function");
 						case User(data):
 							final ptype = f.type;
@@ -147,7 +154,7 @@ class Environment {
 			}
 		}
 		for (tmp in tempVariables) {
-			map[tmp.name] = true;
+			map[tmp.str] = true;
 		}
 		var i = 0;
 		while (true) {
@@ -158,26 +165,29 @@ class Environment {
 		}
 	}
 
-	public function createTempVar():TempVariable {
-		final tmp = new TempVariable(nextTempName());
+	public function createTempVar():Placeholder {
+		final tmp = {str: nextTempName()};
 		tempVariables.push(tmp);
 		return tmp;
 	}
 
 	function checkNameConflict(name:String):Void {
 		for (tmp in tempVariables) {
-			if (tmp.name == name) {
-				tmp.name = nextTempName();
+			if (tmp.str == name) {
+				tmp.str = nextTempName();
 			}
 		}
 	}
 
-	function checkIdentifier(name:String, pos:Position):Void {
+	function checkIdentifier(name:String, definedByUser:Bool, pos:Position):Void {
 		if (Keyword.KEYWORDS.contains(name)) {
 			throw error("cannot use " + name + " as an identifier", pos);
 		}
 		if (name.startsWith("gl_")) {
 			throw error("identifier must not start with \"gl_\"", pos);
+		}
+		if (definedByUser && name.startsWith("_hgsl_")) {
+			throw error("identifier must not start with \"_hgsl_\"", pos);
 		}
 		if (name.contains("__")) {
 			throw error("identifier must not include \"__\"", pos);
@@ -185,7 +195,7 @@ class Environment {
 	}
 
 	public function defineVar(name:String, type:GType, kind:GVarKind, field:Field, pos:Position):GVar {
-		checkIdentifier(name, pos);
+		checkIdentifier(name, true, pos);
 		if (resolveField(name, true) != null)
 			throw error("redefinition of a variable in the same scope: " + name, pos);
 
@@ -204,11 +214,11 @@ class Environment {
 						throw error("varying of " + type.toString() + " must be specified flat", pos);
 					case _:
 				}
-			case Local(kind):
+			case Local(v):
 				if (type.containsSampler())
 					addError("cannot define a local variable of a type that contains a sampler", pos);
 				if (type.match(TFunc(_))) {
-					switch kind {
+					switch v.kind {
 						case Const(_): // ok
 						case _:
 							addError("function type variable must be a compile-time constant", pos);
@@ -249,9 +259,9 @@ class Environment {
 		return res;
 	}
 
-	public function defineFunc(name:String, type:GType, args:Array<GFuncArg>, region:GFuncRegion, expr:Expr, field:Field,
-			pos:Position):GFunc {
-		checkIdentifier(name, pos);
+	public function defineFunc(name:String, definedByUser:Bool, type:GType, args:Array<GFuncArg>, region:GFuncRegion, expr:Expr,
+			field:Field, pos:Position):GFunc {
+		checkIdentifier(name, definedByUser, pos);
 		if (scopes.length > 1)
 			throw error("function can only be defined at a global scope", pos);
 		if (!type.isOkayForReturn())
@@ -261,7 +271,7 @@ class Environment {
 			args: args,
 			name: name,
 			region: region,
-			ctor: false,
+			generic: type.isFunctionType(),
 			kind: User({
 				expr: expr,
 				field: field,
@@ -316,6 +326,82 @@ class Environment {
 			case FVar(_.name => name) | FFunc(_.name => name):
 				name;
 		});
+	}
+
+	public function accessVariable(target:GVar, requestUniqueGlobalName:(baseName:String) -> String, pos:Position):VariableAccessResult {
+		final n = scopes.length;
+		for (i in 0...n) {
+			final scopeIndex = n - 1 - i;
+			final scope = scopes[scopeIndex];
+			for (f in scope) {
+				final fname = switch f {
+					case FVar(_.name => name) | FFunc(_.name => name):
+						name;
+				}
+				if (fname == target.name) {
+					switch f {
+						case FVar(v):
+							if (v != target)
+								throw ierror(macro "different variable hit");
+							if (v.type.isFunctionType())
+								return RFunc;
+							switch v.kind {
+								case Uniform | Attribute(_) | Color(_) | Varying(_) | Global(_):
+									return RGlobal;
+								case Argument(argumentVar):
+									if (scopeIndex < localFunctionScopeDepth && !argumentVar.turnedGlobal) {
+										if (v.type.containsSampler())
+											throw error("cannot capture a variable that contains samplers", pos);
+
+										// captured local variable hit, make it global
+										argumentVar.turnedGlobal = true;
+										final globalName = requestUniqueGlobalName(v.name);
+										argumentVar.namePlaceholder.str = globalName;
+
+										// assign to the global variable
+										final functionHead = argumentVar.functionHead;
+										functionHead.breakLine();
+										functionHead.add(globalName + " = " + v.name + ";");
+
+										return RGlobalGenerated({
+											name: globalName,
+											type: v.type,
+											kind: Global(Mutable),
+											field: v.field,
+											pos: v.pos
+										});
+									}
+									return RLocal;
+								case BuiltIn(_):
+									throw ierror(macro "unexpected built-in variable");
+								case GlobalConstUnparsed(_):
+									throw ierror(macro "unexpected unparsed global const");
+								case GlobalConstParsing:
+									throw ierror(macro "unexpected parsing global const");
+								case Local(localVar):
+									if (scopeIndex < localFunctionScopeDepth && !localVar.turnedGlobal) {
+										// captured local variable hit, make it global
+										localVar.turnedGlobal = true;
+										final globalName = requestUniqueGlobalName(v.name);
+										localVar.namePlaceholder.str = globalName;
+										localVar.typeAndSpacePlaceholder.str = ""; // remove local definition
+										return RGlobalGenerated({
+											name: globalName,
+											type: v.type,
+											kind: Global(Mutable),
+											field: v.field,
+											pos: v.pos
+										});
+									}
+									return RLocal;
+							}
+						case FFunc(_):
+							throw ierror(macro "variable expected");
+					}
+				}
+			}
+		}
+		throw ierror(macro "variable did not hit");
 	}
 
 	public function resolveField(name:String, sameScope:Bool = false):Null<GField> {
@@ -373,8 +459,7 @@ class Environment {
 		};
 	}
 
-	// TODO: give a more appropriate name for this
-	public function getLocalFuncsOfName(name:String):Array<GFunc> {
+	public function getAccessibleGlobalFuncsOfName(name:String):Array<GFunc> {
 		return resolveFields(name).filter(field -> field.match(FFunc(_))).map(f -> switch f {
 			case FFunc(f):
 				f;

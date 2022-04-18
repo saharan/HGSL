@@ -7,7 +7,7 @@ enum ConstValue {
 	VMatrix(v:MatrixConstValue);
 	VStruct(v:Array<{name:String, value:ConstValue}>);
 	VArray(vs:Array<ConstValue>);
-	VFunc(funcs:Array<GFunc>);
+	VFunc(funcs:Array<GFunc>, sideEffectSource:Null<Source>);
 }
 
 enum ScalarConstValue {

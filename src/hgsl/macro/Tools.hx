@@ -148,7 +148,7 @@ class Tools {
 		}
 	}
 
-	public static function toFuncTypes(funcs:Array<GFunc>):GType {
+	public static function toFuncsType(funcs:Array<GFunc>):GType {
 		return TFuncs(funcs.map(f -> {
 			args: f.args.map(arg -> {name: arg.name, type: f.type}),
 			ret: f.type
@@ -953,10 +953,10 @@ class Tools {
 						res.push(FFunc({
 							name: field.name,
 							region: region,
-							ctor: true,
+							generic: false,
 							type: ret.toComplexType().toGType(pos),
 							args: [],
-							kind: BuiltIn,
+							kind: BuiltInConstructor,
 							pos: pos
 						}));
 					case _:
@@ -989,7 +989,7 @@ class Tools {
 							res.push(FFunc({
 								name: field.name,
 								region: region,
-								ctor: false,
+								generic: false,
 								type: ret.toComplexType().toGType(pos, true),
 								args: args.map(arg -> {
 									if (arg.opt)
@@ -1187,7 +1187,7 @@ class Tools {
 	}
 
 	public static function isOkayForReturn(type:GType):Bool {
-		return !type.containsSampler() && !type.match(TFunc(_));
+		return !type.containsSampler();
 	}
 
 	public static function equals(a:GType, b:GType, sortFields:Bool = false):Bool {
@@ -1227,6 +1227,21 @@ class Tools {
 				TBool;
 			case _:
 				null;
+		}
+	}
+
+	public static function tweakIdentifier(name:String, checkIfOkay:(name:String) -> Bool, alwaysTweak:Bool):String {
+		if (!alwaysTweak && checkIfOkay(name))
+			return name;
+		final regex = new EReg("^" + RESERVED_PREFIX + "(.*)_([0-9]+)?$", "");
+		final origName = regex.match(name) ? regex.matched(1) : name;
+		var count = -1;
+		while (true) {
+			final newName = RESERVED_PREFIX + origName + "_" + (count >= 0 ? "" + count : "");
+			if (checkIfOkay(newName)) {
+				return newName;
+			}
+			count++;
 		}
 	}
 }

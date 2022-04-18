@@ -5,25 +5,26 @@ import hgsl.Types;
 import hgsl.ShaderMain;
 import hgsl.ShaderModule;
 
-private class Module extends ShaderModule {
-	function someFunc(a:Int, b:Int):Float {
-		var hoge = 123;
-		return float(a + b);
-	}
-
-	function someFunc2(func:(a:Float, b:Float) -> Float, a:Float, b:Float):Float {
-		return func(a, b);
-	}
-}
-
 class FunctionType extends ShaderMain {
+	function returnsClosure(initialValue:Int, func:Int -> Int):() -> Int {
+		var value = initialValue;
+		return () -> func(value++); // return closure
+	}
+
 	function vertex():Void {
-		final funcAlias:(x:Float, y:Float) -> Float = false ? min : max;
-		funcAlias(1, 2);
-		Module.someFunc2(max, 114, 514);
-		Module.someFunc2(min, 114, 514);
-		Module.someFunc2(funcAlias, 114, 514);
-		vertexSource;
+		var sum = 0;
+		function add(value:Int):Int {
+			return sum += value; // capture local variable by reference
+		}
+
+		final c1 = returnsClosure(1, add); // pass it to another function
+		final c2 = returnsClosure(100, add);
+		c1(); // 1             = 1
+		c1(); // 1+2           = 3
+		c1(); // 1+2+3         = 6
+		c2(); // 1+2+3+100     = 106
+		c2(); // 1+2+3+100+101 = 207
+		sum; // 207
 	}
 
 	function fragment():Void {

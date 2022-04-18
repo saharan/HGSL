@@ -324,13 +324,13 @@ class Builder {
 			final tweakedSuperFuncFields = [];
 			for (f in supEnv.getGlobalFuncs()) {
 				switch f.kind {
-					case BuiltIn:
+					case BuiltIn | BuiltInConstructor:
 						throw ierror(macro "unexpected bult-in function");
 					case User(data):
 						final origName = f.name;
 						// define the function with its original name,
 						// this one can be overridden
-						env.defineFunc(origName, f.type, f.args, f.region, data.expr, data.field, f.pos);
+						env.defineFunc(origName, false, f.type, f.args, f.region, data.expr, data.field, f.pos);
 
 						// also define the function with the tweaked name,
 						// this one cannot be overridden and can be accessed with super keyword
@@ -345,7 +345,7 @@ class Builder {
 								// already registered, use it
 								name;
 						}
-						env.defineFunc(tweakedName, f.type, f.args, f.region, data.expr, data.field, f.pos);
+						env.defineFunc(tweakedName, false, f.type, f.args, f.region, data.expr, data.field, f.pos);
 						tweakedSuperFuncFields.push({
 							name: tweakedName,
 							access: [AExtern, AOverload],
@@ -570,6 +570,8 @@ class Builder {
 							final args = f.args.map(arg -> {
 								if (arg.opt || arg.value != null)
 									addError("optional parameters are not supported", pos);
+								if (arg.type == null)
+									throw error("argument type must be explicitly given", pos);
 								final type = arg.type.toGType(pos);
 								{
 									name: arg.name,
@@ -597,7 +599,7 @@ class Builder {
 										pos);
 							}
 
-							final func = env.defineFunc(name, type, args, region, f.expr, field, pos);
+							final func = env.defineFunc(name, true, type, args, region, f.expr, field, pos);
 							switch name {
 								case "main":
 									throw error("function name cannot be \"main\"", pos);

@@ -51,7 +51,6 @@ void main() {
 	}
 	if (numLights == 0) {
 		oColor = baseColor;
-		return;
 	}
 	vec3 eye = safeNormalize(vPosition);
 	vec3 n = safeNormalize(vNormal);

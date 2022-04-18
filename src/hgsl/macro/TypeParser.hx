@@ -294,7 +294,7 @@ class TypeParser {
 				} else {
 					try {
 						TFunc({
-							args: args.map(arg -> switch arg {
+							args: args.mapi((i, arg) -> switch arg {
 								case TNamed(n, t):
 									{
 										name: n,
@@ -306,7 +306,15 @@ class TypeParser {
 										})
 									}
 								case _:
-									throw error("expected named type", pos);
+									{
+										name: "arg" + i,
+										type: parseType(arg, pos, false, {
+											paths: context.paths,
+											inArray: context.inArray,
+											inArrayDirect: false,
+											inStruct: context.inStruct
+										})
+									}
 							}),
 							ret: parseType(ret, pos, true, {
 								paths: context.paths,
@@ -320,6 +328,8 @@ class TypeParser {
 						TVoid;
 					}
 				}
+			case TParent(t):
+				parseType(t, pos, allowVoid, context);
 			case _:
 				addError("unsupported type: " + t.toString(), pos);
 				TVoid;

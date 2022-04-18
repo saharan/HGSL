@@ -7,14 +7,14 @@ class FunctionToParse {
 	public final target:GFunc;
 	public final userFuncData:UserFuncData;
 	public final passedFuncs:Array<GFunc>;
-	public final normalArgs:Array<{name:String, type:GType}> = [];
+	public final normalArgs:Array<NamedType> = [];
 	public final funcArgs:Array<{name:String, type:GFuncType, func:GFunc}> = [];
 
 	public function new(target:GFunc, passedFuncs:Array<GFunc>) {
 		this.target = target;
 		this.passedFuncs = passedFuncs;
 		userFuncData = switch target.kind {
-			case BuiltIn:
+			case BuiltIn | BuiltInConstructor:
 				throw ierror(macro "unexpected built-in function");
 			case User(data):
 				data;
@@ -52,7 +52,7 @@ class FunctionToParse {
 	public function generateKey():String {
 		final env = userFuncData.env;
 		return env.module + "." + env.className + "." + target.name + "(" + target.args.map(arg -> arg.type.toString())
-			.join(",") + "):" + target.type.toString() + "<" + passedFuncs.map(f -> f.pos).join(", ") + ">";
+			.join(",") + "):" + target.type.toString() + "<" + passedFuncs.map(f -> f.name + "(" + f.pos + ")").join(", ") + ">";
 	}
 }
 #end

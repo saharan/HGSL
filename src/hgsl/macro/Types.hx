@@ -1,6 +1,9 @@
 package hgsl.macro;
 
+import hgsl.macro.ParsedFunction;
+
 #if macro
+final RESERVED_PREFIX = "hg_";
 final BASE_PATH = "hgsl";
 final BASE_PACK = BASE_PATH.split(".");
 final STRUCT_MODULE_NAME = "ShaderStruct";
@@ -60,9 +63,7 @@ final USAMPLER2DARRAY_NAME = "USampler2DArray";
 final ARRAY_NAME = "Array";
 final MAX_ARRAY_SIZE = 65536;
 
-typedef GStructField = {
-	name:String,
-	type:GType,
+typedef GStructField = NamedType & {
 	pos:Position
 }
 
@@ -132,8 +133,13 @@ enum GType {
 	TFuncs(fs:Array<GFuncType>);
 }
 
+typedef NamedType = {
+	name:String,
+	type:GType
+}
+
 typedef GFuncType = {
-	args:Array<{name:String, type:GType}>,
+	args:Array<NamedType>,
 	ret:GType
 }
 
@@ -166,6 +172,13 @@ enum ArgumentVarKind {
 	InOut;
 }
 
+typedef GArgumentVar = {
+	kind:ArgumentVarKind,
+	turnedGlobal:Bool,
+	namePlaceholder:Placeholder,
+	functionHead:Source
+}
+
 enum GGlobalVarKind {
 	Mutable;
 	Const(cvalue:ConstValue);
@@ -182,6 +195,17 @@ enum VaryingKind {
 	Flat;
 }
 
+typedef Placeholder = {
+	str:String
+}
+
+typedef GLocalVar = {
+	kind:LocalVarKind,
+	turnedGlobal:Bool,
+	typeAndSpacePlaceholder:Placeholder,
+	namePlaceholder:Placeholder,
+}
+
 enum GVarKind {
 	Uniform;
 	Attribute(location:VariableLocation);
@@ -191,8 +215,25 @@ enum GVarKind {
 	Global(kind:GGlobalVarKind);
 	GlobalConstUnparsed(e:Expr);
 	GlobalConstParsing();
-	Local(kind:LocalVarKind);
-	Argument(kind:ArgumentVarKind);
+	Local(v:GLocalVar);
+	Argument(v:GArgumentVar);
+}
+
+typedef GeneratedFunctionEntry = {
+	names:Array<String>,
+	cvalue:Null<ConstValue>
+}
+
+typedef FunctionParseResult = {
+	generatedName:String,
+	cvalue:Null<ConstValue>
+}
+
+enum VariableAccessResult {
+	RGlobal;
+	RGlobalGenerated(v:GVar);
+	RLocal;
+	RFunc;
 }
 
 enum GBuiltInVariableKind {
@@ -202,17 +243,13 @@ enum GBuiltInVariableKind {
 	FragmentOut;
 }
 
-typedef GVar = {
-	name:String,
-	type:GType,
+typedef GVar = NamedType & {
 	kind:GVarKind,
 	field:Null<Field>,
 	pos:Position
 }
 
-typedef GFuncArg = {
-	name:String,
-	type:GType,
+typedef GFuncArg = NamedType & {
 	isRef:Bool
 }
 
@@ -229,6 +266,7 @@ typedef GFuncBase = {
 
 enum GFuncKind {
 	BuiltIn;
+	BuiltInConstructor;
 	User(data:UserFuncData);
 }
 
@@ -241,7 +279,7 @@ typedef UserFuncData = {
 typedef GFunc = GFuncBase & {
 	name:String,
 	region:GFuncRegion,
-	ctor:Bool,
+	generic:Bool,
 	kind:GFuncKind,
 	pos:Position
 }
@@ -291,6 +329,4 @@ typedef UnopType = {
 	postFix:Bool,
 	constFunc:(a:ConstValue) -> ConstValue
 }
-
-var hoge:Operator;
 #end
