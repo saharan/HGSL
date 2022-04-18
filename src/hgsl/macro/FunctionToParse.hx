@@ -39,7 +39,7 @@ class FunctionToParse {
 			throw ierror(macro "function argument count mismatch");
 		if (!funcArgs.zip(passedFuncs, (a, f) -> {
 			a.func = f;
-			a.type.match(f);
+			f.canImplicitlyCast(a.type);
 		}).all())
 			throw ierror(macro "function types mismatch");
 		final normalArgs = target.args.filter(arg -> !arg.type.isFunctionType()).map(arg -> {name: arg.name, type: arg.type});

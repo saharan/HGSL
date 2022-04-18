@@ -25,6 +25,11 @@ class FunctionType extends ShaderMain {
 		c2(); // 1+2+3+100     = 106
 		c2(); // 1+2+3+100+101 = 207
 		sum; // 207
+
+		final vec2Func:Vec2 -> Vec2 = a -> a;
+		final toVoid:Vec2 -> Void = vec2Func; // return: covariant
+		final fromInt:IVec2 -> Vec2 = vec2Func; // arguments: contravariant
+		((f:IVec2 -> Void) -> f(ivec2(0)))(vec2Func); // combination, passing to another function
 	}
 
 	function fragment():Void {

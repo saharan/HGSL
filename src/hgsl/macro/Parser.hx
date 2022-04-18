@@ -755,6 +755,26 @@ class Parser {
 		}
 	}
 
+	static function extractFunction(expected:GFuncType, funcs:Array<GFunc>, pos:Position):GFunc {
+		var candidate = funcs.filter(f -> f.toFuncType().funcTypeEquals(expected));
+		if (candidate.length == 0) {
+			candidate = funcs.filter(f -> f.canImplicitlyCast(expected));
+		}
+		switch candidate {
+			case [f]:
+				return f;
+			case []:
+				throw error("no suitable overload found; expected: " + TFunc(expected).toString() + "\nhave: " + (funcs.map(f -> f.toType()
+					.toString())
+					.join("\n  ")), pos);
+			case fs:
+				throw error("ambiguous overload found; expected: " + TFunc(expected).toString() + "\ncandidates: " + (funcs.map(f ->
+					f.toType()
+					.toString())
+					.join("\n  ")), pos);
+		}
+	}
+
 	function parseExprWithoutConstantFolding(e:Expr, src:Source, env:Environment, statement:Bool, expectedType:GType = null,
 			isFuncRoot:Bool = false):GInternalType {
 		final origExpr = e;
@@ -773,20 +793,11 @@ class Parser {
 							throw ierror(macro "function type variable must be a compile-time constant");
 						case VFunc(funcs, sideEffectSource):
 							switch expectedType {
-								case TFunc({args: args, ret: ret}): // extract a specific function
-									switch funcs.filter(f -> f.args.length == args.length && f.args.zip(args, (a,
-											b) -> a.type.equals(b.type))
-										.all() && f.type.equals(ret)) {
-										case [f]:
-											return {
-												type: expectedType,
-												lvalue: false,
-												cvalue: VFunc([f], sideEffectSource)
-											}
-										case []:
-											throw error("no suitable overload found: " + expectedType.toString(), pos);
-										case _:
-											throw ierror(macro "multiple functions found");
+								case TFunc(expectedFunc): // extract a specific function
+									return {
+										type: expectedType,
+										lvalue: false,
+										cvalue: VFunc([extractFunction(expectedFunc, funcs, pos)], sideEffectSource)
 									}
 								case TFuncs(_): // not identified; any functions are fine
 									return {
@@ -1329,14 +1340,7 @@ class Parser {
 											}
 											switch expected {
 												case TFunc(f):
-													switch funcs.filter(func -> f.match(func)) {
-														case [f]:
-															funcArgs.push(f);
-														case []:
-															throw error("no suitable overload found: " + expected.toString(), pos);
-														case _:
-															throw ierror(macro "could not identify a function");
-													}
+													funcArgs.push(extractFunction(f, funcs, params[i].pos));
 												case TFuncs(_):
 													throw ierror(macro "argument type cannot be a functions type");
 												case _:
@@ -1456,10 +1460,6 @@ class Parser {
 										src.breakLine();
 										cvalue = VFunc([f], null); // resolve the side effect
 									}
-									type = TFunc({
-										args: f.args.map(arg -> {name: arg.name, type: arg.type}),
-										ret: f.type
-									});
 									isFuncType = true;
 								case VFunc(_):
 									addError("ambiguous reference to a function", pos);
@@ -1603,8 +1603,8 @@ class Parser {
 
 				for (expr in exprs) {
 					try {
-					parseExpr(expr, src, env, true);
-					src.breakLine();
+						parseExpr(expr, src, env, true);
+						src.breakLine();
 					} catch (e:GError) {
 						addError(e.message, e.pos);
 					}
@@ -1804,44 +1804,7 @@ class Parser {
 			case EReturn(e):
 				if (!statement)
 					addError("a return statement cannot be placed here", pos);
-				final source = new Source();
-				final expected = currentlyParsingFunction.ret;
-				final t = e == null ? null : parseExpr(e, source, env, false, expected);
-				if (t != null) { // some value is returned
-					if (t.type == TVoid)
-						throw error("cannot return void", pos);
-					if (expected == null)
-						currentlyParsingFunction.ret = t.type; // set return type
-					if (t.type.isFunctionType()) {
-						switch t.cvalue {
-							case VFunc(funcs, sideEffectSource):
-								if (sideEffectSource != null) {
-									src.append(sideEffectSource, true); // resolve the side effect
-									src.add(";");
-									src.breakLine();
-								}
-								if (currentlyParsingFunction.cvalue != null) {
-									throw error("function that returns a function must not have multiple return statements", pos);
-								}
-								currentlyParsingFunction.cvalue = VFunc(funcs, null);
-							case _:
-								throw ierror(macro "expected function value");
-						}
-						src.add("return 0;"); // dummy return value
-					} else {
-						src.add("return ");
-						src.append(source, true);
-						src.add(";");
-					}
-				} else {
-					switch expected {
-						case null: // set return type
-							currentlyParsingFunction.ret = TVoid;
-						case TVoid: // ok
-						case _: // NG
-							throw error("return value of type " + expected.toString() + " expected", pos);
-					}
-				}
+				parseReturn(e, src, env, false, pos);
 				voidValue;
 			case EBreak:
 				if (!statement)
@@ -1883,13 +1846,62 @@ class Parser {
 					case EVars(_) | EBlock(_) | EFor(_) | EIf(_) | EWhile(_) | ESwitch(_):
 						// remove implicit return for these cases
 						e.expr = ret.expr;
+						parseExpr(e, src, env, true, null, isFuncRoot); // do not return
 					case _:
-						e.expr = EReturn(ret);
+						parseReturn(ret, src, env, true, pos); // parse implicit return
+						voidValue;
 				}
-				parseExpr(e, src, env, true, null, isFuncRoot);
 			case _:
 				addError("this kind of expression is not supported: " + e.toString() + " (" + e.expr.getName() + ")", e.pos);
 				voidValue;
+		}
+	}
+
+	function parseReturn(e:Expr, src:Source, env:Environment, implicitReturn:Bool, pos:Position):Void {
+		final source = new Source();
+		final expected = currentlyParsingFunction.ret;
+		final t = e == null ? null : parseExpr(e, source, env, false, expected);
+		if (t != null) { // some value is returned
+			if (expected == null)
+				currentlyParsingFunction.ret = t.type; // set return type
+			if (t.type == TVoid) {
+				if (implicitReturn) {
+					src.append(source, true);
+					src.add(";");
+					return;
+				} else {
+					throw error("cannot return void", pos);
+				}
+			}
+			if (t.type.isFunctionType()) {
+				switch t.cvalue {
+					case VFunc(funcs, sideEffectSource):
+						if (sideEffectSource != null) {
+							src.append(sideEffectSource, true); // resolve the side effect
+							src.add(";");
+							src.breakLine();
+						}
+						if (currentlyParsingFunction.cvalue != null) {
+							throw error("function that returns a function must not have multiple return statements", pos);
+						}
+						currentlyParsingFunction.cvalue = VFunc(funcs, null);
+					case _:
+						throw ierror(macro "expected function value");
+				}
+				src.add("return 0;"); // dummy return value
+			} else {
+				src.add("return ");
+				src.append(source, true);
+				src.add(";");
+			}
+		} else {
+			switch expected {
+				case null: // set return type
+					currentlyParsingFunction.ret = TVoid;
+				case TVoid: // ok
+				case _: // NG
+					throw error("return value of type " + expected.toString() + " expected", pos);
+			}
 		}
 	}
 }

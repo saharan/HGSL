@@ -546,7 +546,7 @@ class Tools {
 	}
 
 	static function replacePos(expr:Expr, pos:Position):Expr {
-		var map:Expr->Expr = null;
+		var map:Expr -> Expr = null;
 		map = e -> {
 			final expr = e.map(map).expr;
 			{
@@ -840,11 +840,29 @@ class Tools {
 		}
 	}
 
-	static function funcTypeEquals(a:GFuncType, b:GFuncType):Bool {
+	public static function toFuncType(f:GFunc):GFuncType {
+		return {
+			args: f.args.map(arg -> {
+				name: arg.name,
+				type: arg.type
+			}),
+			ret: f.type
+		}
+	}
+
+	public static function toType(f:GFunc):GType {
+		return TFunc(f.toFuncType());
+	}
+
+	public static function funcTypeEquals(a:GFuncType, b:GFuncType):Bool {
 		return a.args.length == b.args.length && a.args.zip(b.args, (a, b) -> a.type.equals(b.type)).all() && a.ret.equals(b.ret);
 	}
 
 	overload public extern static inline function canImplicitlyCast(src:GType, dst:GType):Bool {
+		return canImplicitlyCastImpl(src, dst);
+	}
+
+	static function canImplicitlyCastImpl(src:GType, dst:GType):Bool {
 		return src.equals(dst) || switch [src, dst] {
 			case [TInt, TUInt] | [TIVec2, TUVec2] | [TIVec3, TUVec3] | [TIVec4, TUVec4]: // int -> uint
 				true;
@@ -852,18 +870,33 @@ class Tools {
 				true;
 			case [TUInt, TFloat] | [TUVec2, TVec2] | [TUVec3, TVec3] | [TUVec4, TVec4]: // uint -> float
 				true;
-			case [TFuncs(fs), TFunc(f)]:
-				fs.exists(func -> funcTypeEquals(func, f));
+			case [_, TVoid]: // any -> void
+				true;
+			case [TFunc(srcf), TFunc(dstf)]:
+				final retOk = canImplicitlyCastImpl(srcf.ret, dstf.ret); // covariant
+				final argsOk = srcf.args.length == dstf.args.length && zip(srcf.args, dstf.args, (src,
+						dst) -> canImplicitlyCastImpl(dst.type, src.type)).all(); // contravariant
+				retOk && argsOk;
+			case [TFuncs(fs), TFunc(dstf)]:
+				fs.exists(srcf -> canImplicitlyCastImpl(TFunc(srcf), TFunc(dstf)));
 			case _: // nope
 				false;
 		}
+	}
+
+	overload public extern static inline function canImplicitlyCast(src:GFuncType, dst:GFuncType):Bool {
+		return canImplicitlyCastImpl(TFunc(src), TFunc(dst));
+	}
+
+	overload public extern static inline function canImplicitlyCast(src:GFunc, dst:GFuncType):Bool {
+		return canImplicitlyCastImpl(TFunc(src.toFuncType()), TFunc(dst));
 	}
 
 	overload public extern static inline function canImplicitlyCast(src:GType, dst:GFuncArg):Bool {
 		return if (dst.isRef) {
 			src.equals(dst.type); // invariant
 		} else {
-			canImplicitlyCast(src, dst.type);
+			canImplicitlyCastImpl(src, dst.type);
 		}
 	}
 
@@ -871,7 +904,7 @@ class Tools {
 		return if (src.isRef || dst.isRef) {
 			src.type.equals(dst.type); // invariant
 		} else {
-			canImplicitlyCast(src.type, dst.type);
+			canImplicitlyCastImpl(src.type, dst.type);
 		}
 	}
 
