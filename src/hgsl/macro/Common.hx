@@ -21,7 +21,7 @@ function error(message:String, pos:Position):GError {
 
 // return an internal error, which is less likely an user's fault
 function ierror(messageExpr:Expr):GError {
-	final msg:String = cast messageExpr.getValue();
+	var msg:String = cast messageExpr.getValue();
 	msg += " (from " + Context.currentPos() + ")";
 	msg += "\n" + CallStack.toString(CallStack.callStack());
 	return new GError(msg, messageExpr.pos);

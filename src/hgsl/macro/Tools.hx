@@ -955,7 +955,7 @@ class Tools {
 			case [f]:
 				f;
 			case []:
-				final msg = "argument types: " + args.map(arg -> arg.toString()).join(", ");
+				var msg = "argument types: " + args.map(arg -> arg.toString()).join(", ");
 				msg += "\ncandidates:\n" + candidates.map(f -> f.args.map(arg -> arg.type.toString()).join(", ")).join("\n");
 				throw error("no suitable overload found\n" + msg, pos);
 			case ambiguous:
