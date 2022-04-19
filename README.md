@@ -414,6 +414,137 @@ class Module extends ShaderModule {
 }
 ```
 
+### Higher-Order Functions
+
+You can define higher order functions. You can pass functions to another function. Also, you can bind a function to a compile-time constant (always use `final` keyword).
+
+```hx
+import hgsl.Global.*;
+import hgsl.Types;
+import hgsl.ShaderModule;
+
+class Module extends ShaderModule {
+	function func(f:(a:Int, b:Int) -> Int):Int { // receive a function
+		return f(1, 2);
+	}
+	
+	function add(a:Int, b:Int):Int {
+		return a + b;
+	}
+	
+	function passFunc():Void {
+		final f = add; // bind a function as a compile-time constant
+		func(f); // pass the function
+		func(add); // or do it directly
+	}
+}
+```
+
+There are several ways to represent the type of a function.
+
+```hx
+final fpLike:   Int -> Int -> Int = Module.add; // receives Int and Int, returns Int
+final named:(a:Int, b:Int) -> Int = Module.add; // the same, but with names
+
+final higherOrder:           (Int -> Int -> Int) -> Int = Module.func;
+final higherOrderNamed:(f:(a:Int, b:Int) -> Int) -> Int = Module.func;
+
+final noArgs:Void -> Void = Module.passFunc;
+final noArgs2: () -> Void = Module.passFunc; // more consistent with named ones
+```
+
+You can define local functions and capture local variables by reference.
+
+```hx
+import hgsl.Global.*;
+import hgsl.Types;
+import hgsl.ShaderModule;
+
+class Module extends ShaderModule {
+	function func():Void {
+		var a = 1;
+		function localFunc():Void {
+			 final b = 2;
+			 a + b; // 3
+			 a *= 10;
+			 a + b; // 12
+		}
+		localFunc();
+		a; // 10
+	}
+}
+```
+
+You can return local functions. When it is done, **a closure** will be generated.
+
+```hx
+import hgsl.Global.*;
+import hgsl.Types;
+import hgsl.ShaderModule;
+
+class Module extends ShaderModule {
+	function func():() -> (() -> Int) {
+		var a = 0;
+		function increment():Int {
+			return ++a;
+		}
+		return increment; // return a local function
+	}
+	
+	function useClosure():Void {
+		final c1 = func(); // a closure is generated
+		c1(); // 1
+		c1(); // 2
+		c1(); // 3
+		
+		final c2 = func(); // another closure is generated
+		c2(); // 1
+		c2(); // 2
+		
+		c1(); // 4; every closure will keep its own environment
+	}
+}
+```
+
+You can use arrows to generate anonymous functions.
+
+```hx
+import hgsl.Global.*;
+import hgsl.Types;
+import hgsl.ShaderModule;
+
+class Module extends ShaderModule {
+	function func():Void {
+		var a = 0;
+		final increment = () -> ++a;        // equivalent
+		final increment2 = function():Int { // equivalent
+			return ++a;
+		}
+		final addTyped = (a:Int, b:Int) -> a + b; // arguments are explicitly typed
+		final add:Int -> Int -> Int = (a, b) -> a + b; // "expected type" helps the type inference
+		// final add = (a, b) -> a + b; // ERROR! argument types are unknown
+	}
+}
+```
+
+Functions can be implicitly converted according to their argument types and return types.
+
+```hx
+import hgsl.Global.*;
+import hgsl.Types;
+import hgsl.ShaderModule;
+
+class Module extends ShaderModule {
+	function func():Void {
+		final float2float:Float -> Float = a -> a;
+		final float2void:Float -> Void = float2float; // safe: discard the return value
+		final int2float:Int -> Float = float2float;   // safe: implicitly convert the argument
+		// final float2int:Int -> Int = float2float;  // ERROR! implicit conversion from float
+		                                              //   to int cannot be done
+	}
+}
+```
+
 ### Obtain Sources
 
 You can obtain source codes of shaders using `vertexSource` and `fragmentSource` fields. These fields can only be used from outside shaders.
