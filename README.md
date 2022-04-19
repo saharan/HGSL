@@ -14,6 +14,7 @@ Everything is done at compile time, so you can use this library just to obtain G
 1. Install [vshaxe](https://github.com/vshaxe/vshaxe) in VSCode Marketplace and configure the Haxe path
 1. Create a Haxe project (`>Haxe: Initialize Project`)
 1. Copy `src/hgsl` to your source folder
+	- or install HGSL using [Haxelib](https://lib.haxe.org/) by `haxelib install hgsl`
 1. Write your shaders!
 
 ## How to use
@@ -673,7 +674,19 @@ var   b = (A & B) | (C ^ (D & E)); // this will not be folded
 a == b; // true, yes they are the same!
 ```
 
+This is also true for modulo operator `%`; in Haxe, `%` has higher priority than `*` has.
+You can access [the complete operators precedence list here](https://haxe.org/manual/expression-operators-precedence.html).
+
 To be honest, this can be technically avoided by reconstructing ASTs, but it's not done anyways. I may implement that in future, or not.
+
+## Limitations
+
+- Any kinds of recursive function calls are not allowed, even if it is obvious to stop within a certain depth
+	- This will result in a runtime error
+	- (This can actually be checked at compile time without much effort, but it's not done yet)
+- Mutual reference between shaders/modules/structures may result in (non-informative) compile errors
+	- "Reference" includes inheritance, function call, variable access, and type reference
+	- Make sure there is no circular reference in your shaders; keep the dependencies a DAG!
 
 ## Examples
 

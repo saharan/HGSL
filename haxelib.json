@@ -1,0 +1,11 @@
+{
+	"name": "hgsl",
+	"url": "https://github.com/saharan/HGSL",
+	"license": "MIT",
+	"tags": ["cross", "shader", "glsl"],
+	"description": "A shading language that can be compiled into GLSL ES 3.0.",
+	"version": "0.0.1",
+	"classPath": "src/",
+	"releasenote": "Initial release",
+	"contributors": ["saharan"]
+}
