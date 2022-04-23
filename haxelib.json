@@ -4,8 +4,8 @@
 	"license": "MIT",
 	"tags": ["cross", "shader", "glsl"],
 	"description": "A shading language that can be compiled into GLSL ES 3.0.",
-	"version": "0.0.2",
+	"version": "0.0.3",
 	"classPath": "src/",
-	"releasenote": "bugfix: `return;` is not generated",
+	"releasenote": "bugfix: errors in Safari (#3)",
 	"contributors": ["saharan"]
 }
