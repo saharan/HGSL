@@ -1902,6 +1902,7 @@ class Parser {
 				case _: // NG
 					throw error("return value of type " + expected.toString() + " expected", pos);
 			}
+			src.add("return;");
 		}
 	}
 }
