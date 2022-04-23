@@ -122,18 +122,17 @@ class Parser {
 
 	function generateFunctionAlias(originalName:String, name:String, args:Array<NamedType>, ret:GType):ParsedFunction {
 		final alias = new ParsedFunction(name);
-		final mainSource = alias.mainSource;
-		final defSource = alias.defSource;
-		generateFunctionHeaders(name, defSource, mainSource, args, ret);
-		mainSource.add("{");
-		mainSource.increaseIndent();
-		mainSource.breakLine();
+		final source = alias.source;
+		generateFunctionHeader(name, source, args, ret);
+		source.add("{");
+		source.increaseIndent();
+		source.breakLine();
 		if (ret != TVoid)
-			mainSource.add("return ");
-		mainSource.add(originalName + "(" + args.map(arg -> arg.name).join(", ") + ");");
-		mainSource.decreaseIndent();
-		mainSource.breakLine();
-		mainSource.add("}");
+			source.add("return ");
+		source.add(originalName + "(" + args.map(arg -> arg.name).join(", ") + ");");
+		source.decreaseIndent();
+		source.breakLine();
+		source.add("}");
 		return alias;
 	}
 
@@ -167,26 +166,21 @@ class Parser {
 			false);
 	}
 
-	function generateFunctionHeaders(name:String, defSource:Source, mainSource:Source, args:Array<NamedType>,
-			ret:Null<GType>):Placeholder {
-		final retPlaceholder = mainSource.addPlaceholder(ret == null ? "void" : ret.isFunctionType() ? "int" : ret.toGLSLType(this));
-		mainSource.add(" ");
-		mainSource.add(name);
-		mainSource.add("(");
-		defSource.append(mainSource, true);
+	function generateFunctionHeader(name:String, source:Source, args:Array<NamedType>, ret:Null<GType>):Placeholder {
+		final retPlaceholder = source.addPlaceholder(ret == null ? "void" : ret.isFunctionType() ? "int" : ret.toGLSLType(this));
+		source.add(" ");
+		source.add(name);
+		source.add("(");
 		for (i => arg in args) {
 			if (i > 0) {
-				defSource.add(", ");
-				mainSource.add(", ");
+				source.add(", ");
 			}
 			final glslType = arg.type.toGLSLType(this);
-			defSource.add(glslType);
-			mainSource.add(glslType);
-			mainSource.add(" ");
-			mainSource.add(arg.name);
+			source.add(glslType);
+			source.add(" ");
+			source.add(arg.name);
 		}
-		defSource.add(");");
-		mainSource.add(") ");
+		source.add(") ");
 		return retPlaceholder;
 	}
 
@@ -245,11 +239,10 @@ class Parser {
 				chooseFunctionName(name, null);
 		}
 		final parsed = new ParsedFunction(generatedName);
-		final mainSource = parsed.mainSource;
-		final defSource = parsed.defSource;
+		final source = parsed.source;
 		final functionHead = new Source();
 		var dummyArgCount = 0;
-		final retPlaceholder = generateFunctionHeaders(generatedName, defSource, mainSource, func.target.args.map(arg -> {
+		final retPlaceholder = generateFunctionHeader(generatedName, source, func.target.args.map(arg -> {
 			if (arg.type.isFunctionType()) {
 				{
 					name: RESERVED_PREFIX + "dummyArg_" + dummyArgCount++,
@@ -283,10 +276,10 @@ class Parser {
 		}
 		final noBlockAtRoot = !data.expr.expr.match(EBlock(_));
 		if (noBlockAtRoot) {
-			mainSource.add("{");
-			mainSource.increaseIndent();
-			mainSource.append(functionHead, false);
-			mainSource.breakLine();
+			source.add("{");
+			source.increaseIndent();
+			source.append(functionHead, false);
+			source.breakLine();
 		}
 
 		// push function data
@@ -299,7 +292,7 @@ class Parser {
 			functionHead: functionHead
 		}
 
-		parseExpr(data.expr, mainSource, env, true, null, true);
+		parseExpr(data.expr, source, env, true, null, true);
 		final cvalue = currentlyParsingFunction.cvalue;
 		final ret = currentlyParsingFunction.ret;
 		if (ret == null) { // no return found
@@ -314,16 +307,17 @@ class Parser {
 		currentlyParsingFunction = tmp;
 
 		if (noBlockAtRoot) {
-			mainSource.decreaseIndent();
-			mainSource.breakLine();
-			mainSource.add("}");
+			source.decreaseIndent();
+			source.breakLine();
+			source.add("}");
 		}
 
+		// add to the function list AFTER the parsing is completed
 		if (!dryMode)
 			funcs.push(parsed);
 
 		env.popScope();
-		// trace(parsed.mainSource.toString());
+		// trace(parsed.source.toString());
 		return {
 			generatedName: generatedName,
 			cvalue: cvalue
@@ -413,15 +407,10 @@ class Parser {
 		}
 		if (sources.length != plen)
 			sources.push("");
-		for (func in funcs) {
-			sources.push(func.defSource.toString());
-		}
-		if (funcs.length > 0)
-			sources.push("");
 		for (i => func in funcs) {
 			if (i > 0)
 				sources.push("");
-			sources.push(func.mainSource.toString());
+			sources.push(func.source.toString());
 		}
 		final res = sources.join("\n");
 		// trace(res);

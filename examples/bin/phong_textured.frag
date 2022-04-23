@@ -32,10 +32,6 @@ in vec2 vTexCoord;
 layout(location = 0) out vec4 oColor;
 uniform sampler2D textureColor;
 
-vec4 computeBaseColor();
-vec3 safeNormalize(vec3);
-void main();
-
 vec4 computeBaseColor() {
 	return texture(textureColor, vTexCoord) * vColor;
 }

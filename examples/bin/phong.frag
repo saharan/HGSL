@@ -31,10 +31,6 @@ in vec3 vNormal;
 in vec2 vTexCoord;
 layout(location = 0) out vec4 oColor;
 
-vec4 computeBaseColor();
-vec3 safeNormalize(vec3);
-void main();
-
 vec4 computeBaseColor() {
 	return vColor;
 }

@@ -33,8 +33,6 @@ out vec3 vNormal;
 out vec2 vTexCoord;
 uniform sampler2D textureColor;
 
-void main();
-
 void main() {
 	gl_Position = matrix.transform * aPosition;
 	vColor = aColor;

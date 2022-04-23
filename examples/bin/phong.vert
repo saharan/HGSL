@@ -32,8 +32,6 @@ out vec3 vPosition;
 out vec3 vNormal;
 out vec2 vTexCoord;
 
-void main();
-
 void main() {
 	gl_Position = matrix.transform * aPosition;
 	vColor = aColor;
