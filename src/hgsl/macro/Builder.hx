@@ -715,14 +715,17 @@ class Builder {
 				}
 			} else {
 				final vertexParser = new Parser(localClass.module, localClass.name, structPool, Vertex);
+				var vertexSource = "";
+				var fragmentSource = "";
 				if (vertex == null) {
 					addError("vertex entry point not found", Context.currentPos());
 				} else {
 					vertexParser.parseEntryPoint(env, vertex);
+					vertexSource = vertexParser.generateSource(env);
 					fields.push({
 						name: "vertexSource",
 						access: [APublic, AStatic, AFinal],
-						kind: FVar(null, macro $v{vertexParser.generateSource(env)}),
+						kind: FVar(null, macro $v{vertexSource}),
 						pos: vertex.pos
 					});
 				}
@@ -731,13 +734,26 @@ class Builder {
 					addError("fragment entry point not found", Context.currentPos());
 				} else {
 					fragmentParser.parseEntryPoint(env, fragment);
+					fragmentSource = fragmentParser.generateSource(env);
 					fields.push({
 						name: "fragmentSource",
 						access: [APublic, AStatic, AFinal],
-						kind: FVar(null, macro $v{fragmentParser.generateSource(env)}),
+						kind: FVar(null, macro $v{fragmentSource}),
 						pos: fragment.pos
 					});
 				}
+				fields.push({
+					name: "source",
+					access: [APublic, AStatic, AFinal],
+					kind: FVar(TPath({
+						pack: ["hgsl"],
+						name: "Source"
+					}), macro {
+						vertex: $v{vertexSource},
+						fragment: $v{fragmentSource}
+					}),
+					pos: Context.currentPos()
+				});
 			}
 		});
 	}
