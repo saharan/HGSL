@@ -548,12 +548,14 @@ class Module extends ShaderModule {
 
 ### Obtain Sources
 
-You can obtain source codes of shaders using `vertexSource` and `fragmentSource` fields. These fields can only be used from outside shaders.
+You can obtain source codes of shaders using `vertexSource` and `fragmentSource` fields, or `vertex` and `fragment` fields inside `source` field. These fields can only be used from outside shaders.
 
 ```hx
 import hgsl.Global.*;
 import hgsl.Types;
 import hgsl.ShaderMain;
+
+import hgsl.Source;
 
 class Shader extends ShaderMain {
 	...
@@ -564,6 +566,12 @@ class Main { // this is NOT a shader class; usual Haxe rules apply here
 		// print sources, or do whatever you need; these are just strings
 		trace(Shader.vertexSource);
 		trace(Shader.fragmentSource);
+		
+		// extract sources out of the shader, this is convenient
+		//   when you have to treat multiple shaders
+		final source:Source = Shader.source;
+		trace(source.vertex);
+		trace(source.fragment);
 	}
 }
 ```
@@ -575,6 +583,9 @@ import hgsl.Global.*;
 import hgsl.Types;
 import hgsl.ShaderMain;
 
+import hgsl.Attribute;
+import hgsl.Uniform;
+
 class Shader extends ShaderMain {
 	@uniform var transform:Mat4;
 	@attribute var aPos:Vec4;
@@ -583,8 +594,16 @@ class Shader extends ShaderMain {
 
 class Main {
 	static function main() {
-		trace(Shader.attributes.aPos);   // print attribute information
-		trace(Shader.uniform.transform); // print uniform information
+		// print attribute information
+		final aPos:Attribute = Shader.attributes.aPos;
+		trace(aPos.name);     // "aPos"
+		trace(aPos.type);     // Vec(4) in `AttributeType`
+		trace(aPos.location); // null, since no location is given
+		
+		// print uniform information
+		final transform:Uniform = Shader.uniform.transform;
+		trace(transform.name); // "transform"
+		trace(transform.type); // Mat(4, 4) in `UniformType`
 	}
 }
 ```

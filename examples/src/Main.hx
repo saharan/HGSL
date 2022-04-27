@@ -1,3 +1,4 @@
+import hgsl.Source;
 import sys.io.File;
 import basic.*;
 import phong.*;
@@ -8,12 +9,15 @@ import hgsl.ShaderModule; // any shader modules (sets of common functions and co
 import hgsl.ShaderStruct; // any shader structures must extend this class (except for anonymous structures)
 
 class Main {
+	static function saveSource(name:String, source:Source):Void {
+		File.saveContent(name + ".vert", source.vertex);
+		File.saveContent(name + ".frag", source.fragment);
+	}
+
 	static function main() {
 		// save phong shader example
-		File.saveContent("phong.vert", PhongShader.vertexSource);
-		File.saveContent("phong.frag", PhongShader.fragmentSource);
-		File.saveContent("phong_textured.vert", PhongShaderTextured.vertexSource);
-		File.saveContent("phong_textured.frag", PhongShaderTextured.fragmentSource);
+		saveSource("phong", PhongShader.source);
+		saveSource("phong_textured", PhongShaderTextured.source);
 
 		// just to make sure all examples will actually be compiled
 		AutoTyping;
