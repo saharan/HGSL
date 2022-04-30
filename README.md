@@ -721,6 +721,14 @@ HGSL heavily uses Haxe's build macro, and it sometimes causes some strange behav
 
 Except for the last one, you can fix these issues by restarting Haxe's language server. Open Command Palette and choose `Haxe: Restart Language Server`.
 
+For the last one, **try putting much whitespace** before the completion point. You can delete it after writing the code at the point. I know this is kind of a very bad workaround, but it works anyway and getting no completions is worse than that. I hope it gets fixed soon.
+1. You got no completion candidates.  
+![](https://i.imgur.com/ysDzSGO.png)
+2. Put much whitespace. Double it if you still get no candidates.  
+![](https://i.imgur.com/JaG9dKb.png)
+3. There it is!  
+![](https://imgur.com/2AooIPp.png)
+
 ## Questions
 
 Send me replies on [twitter](https://twitter.com/shr_id)!
