@@ -730,7 +730,7 @@ class Parser {
 				tmpSource.add("(");
 				tmpSource.append(source, true);
 				tmpSource.add(")");
-				cvalue = cvalue == null ? null : cvalue.castTo(expectedType.getElementType());
+				cvalue = cvalue == null || expectedType == TVoid ? null : cvalue.castTo(expectedType.getElementType());
 			} else {
 				final msg = "cannot cast " + sourceType.type.toString() + " to " + expectedType.toString();
 				throw ierror(macro $v{msg});
