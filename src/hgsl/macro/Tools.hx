@@ -232,7 +232,7 @@ class Tools {
 			case TISampler2DArray:
 				"isampler2DArray";
 			case TUSampler2D:
-				"usamper2D";
+				"usampler2D";
 			case TUSampler3D:
 				"usampler3D";
 			case TUSamplerCube:
@@ -384,7 +384,7 @@ class Tools {
 			case TISampler2DArray:
 				"isampler2DArray";
 			case TUSampler2D:
-				"usamper2D";
+				"usampler2D";
 			case TUSampler3D:
 				"usampler3D";
 			case TUSamplerCube:

@@ -335,11 +335,49 @@ class Parser {
 		switch kind {
 			case Vertex:
 				sources.push("#version 300 es");
+				for (type in [
+					"sampler2D",
+					"sampler3D",
+					"samplerCube",
+					"samplerCubeShadow",
+					"sampler2DShadow",
+					"sampler2DArray",
+					"sampler2DArrayShadow",
+					"isampler2D",
+					"isampler3D",
+					"isamplerCube",
+					"isampler2DArray",
+					"usampler2D",
+					"usampler3D",
+					"usamplerCube",
+					"usampler2DArray"
+				]) {
+					sources.push("precision highp " + type + ";");
+				}
 				sources.push("");
 			case Fragment:
 				sources.push("#version 300 es");
-				sources.push("precision highp float;");
-				sources.push("precision highp int;");
+				for (type in [
+					"int",
+					"float",
+					"sampler2D",
+					"sampler3D",
+					"samplerCube",
+					"samplerCubeShadow",
+					"sampler2DShadow",
+					"sampler2DArray",
+					"sampler2DArrayShadow",
+					"isampler2D",
+					"isampler3D",
+					"isamplerCube",
+					"isampler2DArray",
+					"usampler2D",
+					"usampler3D",
+					"usamplerCube",
+					"usampler2DArray"
+				]) {
+					sources.push("precision highp " + type + ";");
+				}
 				sources.push("");
 			case Module:
 				throw "cannot generate module source";
