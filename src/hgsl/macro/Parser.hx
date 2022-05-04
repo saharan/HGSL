@@ -1029,13 +1029,8 @@ class Parser {
 												case Immutable | Const(_):
 													false;
 											}
-										case Argument(_.kind => kind):
-											switch kind {
-												case InOut:
-													true;
-												case In:
-													false;
-											}
+										case Argument(_):
+											true;
 									},
 									cvalue: switch v.kind {
 										case Local({kind: Const(cvalue)}) | Global(Const(cvalue)):
