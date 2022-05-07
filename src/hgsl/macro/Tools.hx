@@ -155,99 +155,111 @@ class Tools {
 		}));
 	}
 
-	public static function toGLSLType(type:GType, parser:Parser):String {
+	public static function toGLSLTypeOfName(type:GType, name:String, parser:Parser):String {
+		final glslType = toGLSLType(type, parser);
+		return glslType[0] + " " + name + glslType[1];
+	}
+
+	public static function toGLSLType(type:GType, parser:Parser):TypeStringPair {
 		return switch type {
 			case TVoid:
-				"void";
+				["void", ""];
 			case TFloat:
-				"float";
+				["float", ""];
 			case TVec2:
-				"vec2";
+				["vec2", ""];
 			case TVec3:
-				"vec3";
+				["vec3", ""];
 			case TVec4:
-				"vec4";
+				["vec4", ""];
 			case TInt:
-				"int";
+				["int", ""];
 			case TIVec2:
-				"ivec2";
+				["ivec2", ""];
 			case TIVec3:
-				"ivec3";
+				["ivec3", ""];
 			case TIVec4:
-				"ivec4";
+				["ivec4", ""];
 			case TUInt:
-				"uint";
+				["uint", ""];
 			case TUVec2:
-				"uvec2";
+				["uvec2", ""];
 			case TUVec3:
-				"uvec3";
+				["uvec3", ""];
 			case TUVec4:
-				"uvec4";
+				["uvec4", ""];
 			case TBool:
-				"bool";
+				["bool", ""];
 			case TBVec2:
-				"bvec2";
+				["bvec2", ""];
 			case TBVec3:
-				"bvec3";
+				["bvec3", ""];
 			case TBVec4:
-				"bvec4";
+				["bvec4", ""];
 			case TMat2x2:
-				"mat2";
+				["mat2", ""];
 			case TMat3x3:
-				"mat3";
+				["mat3", ""];
 			case TMat4x4:
-				"mat4";
+				["mat4", ""];
 			case TMat2x3:
-				"mat2x3";
+				["mat2x3", ""];
 			case TMat3x2:
-				"mat3x2";
+				["mat3x2", ""];
 			case TMat2x4:
-				"mat2x4";
+				["mat2x4", ""];
 			case TMat4x2:
-				"mat4x2";
+				["mat4x2", ""];
 			case TMat3x4:
-				"mat3x4";
+				["mat3x4", ""];
 			case TMat4x3:
-				"mat4x3";
+				["mat4x3", ""];
 			case TSampler2D:
-				"sampler2D";
+				["sampler2D", ""];
 			case TSampler3D:
-				"sampler3D";
+				["sampler3D", ""];
 			case TSamplerCube:
-				"samplerCube";
+				["samplerCube", ""];
 			case TSamplerCubeShadow:
-				"samplerCubeShadow";
+				["samplerCubeShadow", ""];
 			case TSampler2DShadow:
-				"sampler2DShadow";
+				["sampler2DShadow", ""];
 			case TSampler2DArray:
-				"sampler2DArray";
+				["sampler2DArray", ""];
 			case TSampler2DArrayShadow:
-				"sampler2DArrayShadow";
+				["sampler2DArrayShadow", ""];
 			case TISampler2D:
-				"isampler2D";
+				["isampler2D", ""];
 			case TISampler3D:
-				"isampler3D";
+				["isampler3D", ""];
 			case TISamplerCube:
-				"isamplerCube";
+				["isamplerCube", ""];
 			case TISampler2DArray:
-				"isampler2DArray";
+				["isampler2DArray", ""];
 			case TUSampler2D:
-				"usampler2D";
+				["usampler2D", ""];
 			case TUSampler3D:
-				"usampler3D";
+				["usampler3D", ""];
 			case TUSamplerCube:
-				"usamplerCube";
+				["usamplerCube", ""];
 			case TUSampler2DArray:
-				"usampler2DArray";
+				["usampler2DArray", ""];
 			case TStruct(fields):
-				parser.getUniqueStructName(fields);
+				[parser.getUniqueStructName(fields), ""];
 			case TArray(type, size):
-				toGLSLType(type, parser) + "[" + (switch size {
+				[switch toGLSLType(type, parser) {
+					case [type, ""]:
+						type;
+					case [_, _]:
+						throw ierror(macro "multidimensional array is not supported");
+					case _:
+						throw ierror(macro "internal error");
+				}, "[" + (switch size {
 					case Resolved(count):
 						count;
 					case Delayed(_):
 						throw ierror(macro "array size must have been resolved");
-				}) + "]";
+				}) + "]"];
 			case TFunc(_) | TFuncs(_):
 				throw ierror(macro "function type cannot be converted into a GLSL type");
 		}

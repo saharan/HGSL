@@ -167,7 +167,7 @@ class Parser {
 	}
 
 	function generateFunctionHeader(name:String, source:Source, args:Array<NamedType>, ret:Null<GType>):Placeholder {
-		final retPlaceholder = source.addPlaceholder(ret == null ? "void" : ret.isFunctionType() ? "int" : ret.toGLSLType(this));
+		final retPlaceholder = source.addPlaceholder(ret == null ? "void" : ret.isFunctionType() ? "int" : ret.toGLSLType(this).join(""));
 		source.add(" ");
 		source.add(name);
 		source.add("(");
@@ -176,9 +176,10 @@ class Parser {
 				source.add(", ");
 			}
 			final glslType = arg.type.toGLSLType(this);
-			source.add(glslType);
+			source.add(glslType[0]);
 			source.add(" ");
 			source.add(arg.name);
+			source.add(glslType[1]);
 		}
 		source.add(") ");
 		return retPlaceholder;
@@ -270,8 +271,9 @@ class Parser {
 			env.defineVar(arg.name, TFunc(arg.type), Local({
 				kind: Const(VFunc([arg.func], null)),
 				turnedGlobal: false,
-				typeAndSpacePlaceholder: {str: ""},
-				namePlaceholder: {str: ""}
+				typeBeforeNameAndSpacePlaceholder: {str: ""},
+				namePlaceholder: {str: ""},
+				typeAfterNamePlaceholder: {str: ""}
 			}), null, pos);
 		}
 		final noBlockAtRoot = !data.expr.expr.match(EBlock(_));
@@ -299,7 +301,7 @@ class Parser {
 			target.type = TVoid;
 		} else { // (expected) return found
 			target.type = ret;
-			currentlyParsingFunction.retPlaceholder.str = ret.isFunctionType() ? "int" : ret.toGLSLType(this);
+			currentlyParsingFunction.retPlaceholder.str = ret.isFunctionType() ? "int" : ret.toGLSLType(this).join("");
 		}
 		target.generic = target.type.isFunctionType();
 
@@ -392,7 +394,7 @@ class Parser {
 		for (gvar in globalVars) {
 			switch gvar.kind {
 				case Uniform:
-					sources.push("uniform " + gvar.type.toGLSLType(this) + " " + gvar.name + ";");
+					sources.push("uniform " + gvar.type.toGLSLTypeOfName(gvar.name, this) + ";");
 				case Attribute(location):
 					if (kind == Vertex)
 						sources.push((switch location {
@@ -400,7 +402,7 @@ class Parser {
 								"in ";
 							case Specified(location):
 								"layout(location = " + location + ") in ";
-						}) + gvar.type.toGLSLType(this) + " " + gvar.name + ";");
+						}) + gvar.type.toGLSLTypeOfName(gvar.name, this) + ";");
 				case Color(location):
 					if (kind == Fragment)
 						sources.push((switch location {
@@ -408,7 +410,7 @@ class Parser {
 								"out ";
 							case Specified(location):
 								"layout(location = " + location + ") out ";
-						}) + gvar.type.toGLSLType(this) + " " + gvar.name + ";");
+						}) + gvar.type.toGLSLTypeOfName(gvar.name, this) + ";");
 				case Varying(vkind):
 					final attrib = switch vkind {
 						case Centroid:
@@ -420,9 +422,9 @@ class Parser {
 					}
 					switch kind {
 						case Vertex:
-							sources.push(attrib + "out " + gvar.type.toGLSLType(this) + " " + gvar.name + ";");
+							sources.push(attrib + "out " + gvar.type.toGLSLTypeOfName(gvar.name, this) + ";");
 						case Fragment:
-							sources.push(attrib + "in " + gvar.type.toGLSLType(this) + " " + gvar.name + ";");
+							sources.push(attrib + "in " + gvar.type.toGLSLTypeOfName(gvar.name, this) + ";");
 						case Module:
 							throw ierror(macro "internal error");
 					}
@@ -431,10 +433,10 @@ class Parser {
 				case Global(kind):
 					switch kind {
 						case Mutable:
-							sources.push(gvar.type.toGLSLType(this) + " " + gvar.name + ";");
-						case Const(_): // should not appear due to folding
+							sources.push(gvar.type.toGLSLTypeOfName(gvar.name, this) + ";");
+						case Const(_): // just ignore; should never appear due to folding
 					}
-				case GlobalConstUnparsed(_): // unused, pass
+				case GlobalConstUnparsed(_): // unused, ignore
 				case GlobalConstParsing:
 					throw ierror(macro "unexpected parsing global const");
 				case Local(_):
@@ -764,7 +766,7 @@ class Parser {
 			tmpSource.append(source, true);
 		} else {
 			if (sourceType.type.canImplicitlyCast(expectedType)) {
-				tmpSource.add(expectedType.toGLSLType(this));
+				tmpSource.add(expectedType.toGLSLType(this).join(""));
 				tmpSource.add("(");
 				tmpSource.append(source, true);
 				tmpSource.add(")");
@@ -1196,7 +1198,7 @@ class Parser {
 						addTypesMismatchError(expectedType, arrayType, pos);
 					var cvalues = [];
 
-					src.add(baseType.toGLSLType(this));
+					src.add(baseType.toGLSLType(this).join(""));
 					src.add("[");
 					src.add("]");
 					src.add("(");
@@ -1259,7 +1261,7 @@ class Parser {
 						addTypesMismatchError(expectedType, structType, pos);
 					}
 				}
-				src.add(structType.toGLSLType(this));
+				src.add(structType.toGLSLType(this).join(""));
 				src.add("(");
 				for (i => val in fieldVals) {
 					if (val.name != sfields[i].name)
@@ -1446,10 +1448,13 @@ class Parser {
 						continue;
 					}
 					final isConst = v.isFinal;
-					final typeAndSpacePlaceholder = source.addPlaceholder("<unknown type> ");
+
+					final typeBeforeNameAndSpacePlaceholder = source.addPlaceholder("<unknown type> ");
+					final namePlaceholder = source.addPlaceholder(v.name);
+					final typeAfterNamePlaceholder = source.addPlaceholder("");
+
 					var type = v.type == null ? null : resolveArraySize(env, v.type.toGType(pos), pos);
 					var cvalue = null;
-					final namePlaceholder = source.addPlaceholder(v.name);
 					if (v.expr == null) {
 						if (isConst)
 							addError("const variable must be given an initial value", pos);
@@ -1495,13 +1500,16 @@ class Parser {
 					source.add(";");
 					source.breakLine();
 					if (!isFuncType) {
-						typeAndSpacePlaceholder.str = type.toGLSLType(this) + " ";
+						final glslType = type.toGLSLType(this);
+						typeBeforeNameAndSpacePlaceholder.str = glslType[0] + " ";
+						typeAfterNamePlaceholder.str = glslType[1];
 					}
 					env.defineVar(v.name, type, Local({
 						kind: isConst ? cvalue != null ? Const(cvalue) : Immutable : Mutable,
 						turnedGlobal: false,
-						typeAndSpacePlaceholder: typeAndSpacePlaceholder,
-						namePlaceholder: namePlaceholder
+						typeBeforeNameAndSpacePlaceholder: typeBeforeNameAndSpacePlaceholder,
+						namePlaceholder: namePlaceholder,
+						typeAfterNamePlaceholder: typeAfterNamePlaceholder
 					}), null, pos);
 					if (isConst && cvalue != null) {
 						// do not generate a compile-time constant definition since all references will be folded
@@ -1581,12 +1589,9 @@ class Parser {
 						env.defineVar(name, [func].toFuncsType(), Local({
 							kind: Const(VFunc([func], null)),
 							turnedGlobal: false,
-							typeAndSpacePlaceholder: {
-								str: ""
-							},
-							namePlaceholder: {
-								str: ""
-							},
+							typeBeforeNameAndSpacePlaceholder: {str: ""},
+							namePlaceholder: {str: ""},
+							typeAfterNamePlaceholder: {str: ""}
 						}), null, pos);
 					case FArrow:
 						"anon_arrow";
@@ -1644,8 +1649,9 @@ class Parser {
 				switch it.expr {
 					case EBinop(OpIn, {expr: EConst(CIdent(v)), pos: vpos}, _.expr => EBinop(OpInterval, from, until)):
 						src.add("for (");
-						final typeAndSpacePlaceholder = src.addPlaceholder("int ");
+						final typeBeforeNameAndSpacePlaceholder = src.addPlaceholder("int ");
 						final namePlaceholder = src.addPlaceholder(v);
+						final typeAfterNamePlaceholder = src.addPlaceholder("");
 						src.add(" = ");
 						parseExpr(from, src, env, false, TInt);
 						src.add("; ");
@@ -1660,8 +1666,9 @@ class Parser {
 							env.defineVar(v, TInt, Local({
 								kind: Immutable,
 								turnedGlobal: false,
-								typeAndSpacePlaceholder: typeAndSpacePlaceholder,
-								namePlaceholder: namePlaceholder
+								typeBeforeNameAndSpacePlaceholder: typeBeforeNameAndSpacePlaceholder,
+								namePlaceholder: namePlaceholder,
+								typeAfterNamePlaceholder: typeAfterNamePlaceholder
 							}), null, vpos);
 							parseExpr(expr, src, env, true);
 							src.breakLine();
@@ -1689,8 +1696,10 @@ class Parser {
 						}
 
 						final array = env.createTempVar();
-						src.add(arrayValue.type.toGLSLType(this) + " ");
+						final arrayGLSLType = arrayValue.type.toGLSLType(this);
+						src.add(arrayGLSLType[0] + " ");
 						src.add(array);
+						src.add(arrayGLSLType[1]);
 						src.add(" = ");
 						src.append(source, true);
 						src.add(";");
@@ -1706,8 +1715,10 @@ class Parser {
 						src.add("++) {");
 						src.increaseIndent();
 						src.breakLine();
-						final typeAndSpacePlaceholder = src.addPlaceholder(info.type.toGLSLType(this) + " ");
+						final glslType = info.type.toGLSLType(this);
+						final typeBeforeNameAndSpacePlaceholder = src.addPlaceholder(glslType[0] + " ");
 						final namePlaceholder = src.addPlaceholder(v);
+						final typeAfterNamePlaceholder = src.addPlaceholder(glslType[1]);
 						src.add(" = ");
 						src.add(array);
 						src.add("[");
@@ -1720,8 +1731,9 @@ class Parser {
 							env.defineVar(v, info.type, Local({
 								kind: Mutable,
 								turnedGlobal: false,
-								typeAndSpacePlaceholder: typeAndSpacePlaceholder,
-								namePlaceholder: namePlaceholder
+								typeBeforeNameAndSpacePlaceholder: typeBeforeNameAndSpacePlaceholder,
+								namePlaceholder: namePlaceholder,
+								typeAfterNamePlaceholder: typeAfterNamePlaceholder
 							}), null, vpos);
 							parseExpr(expr, src, env, true);
 							src.breakLine();

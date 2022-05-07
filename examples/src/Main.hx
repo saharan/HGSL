@@ -29,6 +29,5 @@ class Main {
 		Modules;
 		Overloads;
 		TypesAndVariables;
-		FunctionType;
 	}
 }

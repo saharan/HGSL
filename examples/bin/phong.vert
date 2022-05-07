@@ -41,7 +41,7 @@ layout(location = 3) in vec2 aTexCoord;
 uniform Struct0 matrix;
 uniform Struct1 material;
 uniform int numLights;
-uniform Struct2[16] lights;
+uniform Struct2 lights[16];
 out vec4 vColor;
 out vec3 vPosition;
 out vec3 vNormal;

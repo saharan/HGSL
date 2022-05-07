@@ -39,7 +39,7 @@ struct Struct2 {
 uniform Struct0 matrix;
 uniform Struct1 material;
 uniform int numLights;
-uniform Struct2[16] lights;
+uniform Struct2 lights[16];
 in vec4 vColor;
 in vec3 vPosition;
 in vec3 vNormal;

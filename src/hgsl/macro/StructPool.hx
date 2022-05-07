@@ -35,8 +35,8 @@ class StructPool {
 		}
 		// register
 		final shortName = "Struct" + structId++;
-		final source = "struct " + shortName + " {\n" +
-			[for (field in fields) "\t" + field.type.toGLSLType(parser) + " " + field.name + ";"].join("\n") + "\n};";
+		final source = "struct " + shortName + " {\n" + [for (field in fields) "\t" + field.type.toGLSLTypeOfName(field.name,
+			parser) + ";"].join("\n") + "\n};";
 		structNameMap[rawName] = shortName;
 		structs.push({
 			name: shortName,

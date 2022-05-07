@@ -384,7 +384,11 @@ class Environment {
 										localVar.turnedGlobal = true;
 										final globalName = requestUniqueGlobalName(v.name);
 										localVar.namePlaceholder.str = globalName;
-										localVar.typeAndSpacePlaceholder.str = ""; // remove local definition
+
+										// remove local definition
+										localVar.typeBeforeNameAndSpacePlaceholder.str = "";
+										localVar.typeAfterNamePlaceholder.str = "";
+
 										return RGlobalGenerated({
 											name: globalName,
 											type: v.type,

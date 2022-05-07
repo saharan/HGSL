@@ -358,9 +358,9 @@ class Tools {
 						Std.string(d);
 				}) + ")";
 			case VStruct(vs):
-				v.getType().toGLSLType(parser) + "(" + vs.map(f -> f.value.toSource(parser)).join(", ") + ")";
+				v.getType().toGLSLType(parser).join("") + "(" + vs.map(f -> f.value.toSource(parser)).join(", ") + ")";
 			case VArray(vs):
-				v.getType().toGLSLType(parser) + "(" + vs.map(v -> toSource(v, parser)).join(", ") + ")";
+				v.getType().toGLSLType(parser).join("") + "(" + vs.map(v -> toSource(v, parser)).join(", ") + ")";
 			case VFunc(_):
 				throw ierror(macro "cannot transform function types to source");
 		}

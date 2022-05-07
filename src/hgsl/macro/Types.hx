@@ -202,8 +202,23 @@ typedef Placeholder = {
 typedef GLocalVar = {
 	kind:LocalVarKind,
 	turnedGlobal:Bool,
-	typeAndSpacePlaceholder:Placeholder,
+	typeBeforeNameAndSpacePlaceholder:Placeholder,
 	namePlaceholder:Placeholder,
+	typeAfterNamePlaceholder:Placeholder
+}
+
+@:forward(join, length)
+abstract TypeStringPair(Array<String>) from Array<String> {
+	@:arrayAccess
+	public function at(i:Int):String {
+		return this[i];
+	}
+
+	@:commutative
+	@:op(A + B)
+	static function addString(a:TypeStringPair, b:String):Void {
+		throw ierror(macro "possibly unintended cast");
+	}
 }
 
 enum GVarKind {
