@@ -150,7 +150,7 @@ class Tools {
 
 	public static function toFuncsType(funcs:Array<GFunc>):GType {
 		return TFuncs(funcs.map(f -> {
-			args: f.args.map(arg -> {name: arg.name, type: f.type}),
+			args: f.args.map(arg -> {name: arg.name, type: arg.type}),
 			ret: f.type
 		}));
 	}
