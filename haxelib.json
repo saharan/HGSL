@@ -4,8 +4,8 @@
 	"license": "MIT",
 	"tags": ["cross", "shader", "glsl"],
 	"description": "A shading language that can be compiled into GLSL ES 3.0.",
-	"version": "0.1.4",
+	"version": "0.2.0",
 	"classPath": "src/",
-	"releasenote": "moved array-size declarations after the identifier",
+	"releasenote": "bugfixes: structs inside a function type, argument types of a function type, added: `consts` field in main shaders",
 	"contributors": ["saharan"]
 }

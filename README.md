@@ -629,11 +629,15 @@ class Main {
 }
 ```
 
-Compile-time constants in a shader module can be accessed from outside shaders ONLY through `consts` field.
+Compile-time constants in a shader can be accessed from outside shaders ONLY through `consts` field.
 
 ```hx
 import hgsl.Types;
 import hgsl.ShaderModule;
+
+class Shader extends ShaderMain {
+	final SOME_CONST_STRUCT = {x: 1, y: 2};
+}
 
 class Module extends ShaderModule {
 	final SOME_CONST_INT = 8;
@@ -642,13 +646,16 @@ class Module extends ShaderModule {
 
 class Main { // usual Haxe class
 	static function main() {
-		// value of StdTypes.INT (not hgsl.Types.Int)
+		// value of StdTypes.Int (not hgsl.Types.Int)
 		trace(Module.consts.SOME_CONST_INT);
 		
 		// value of std.Array<StdTypes.Int> (not hgsl.Types.Array<Int, 3>)
 		trace(Module.consts.SOME_CONST_ARRAY);
 		
-		// do NOT do this; you will obtain nothing
+		// value of {x: StdTypes.Int, y: StdTypes.Int}
+		trace(Shader.consts.SOME_CONST_STRUCT);
+		
+		// DO NOT do this; you will obtain nothing
 		// trace(Module.SOME_CONST_INT);
 	}
 }
