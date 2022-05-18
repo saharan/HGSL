@@ -105,7 +105,7 @@ class Environment {
 					v.type = parser.resolveArraySize(this, v.type, v.field.pos);
 					switch v.field.kind {
 						case FVar(t, e):
-							if (v.type.match(TStruct(_) | TArray(_))) {
+							if (v.type.match(TStruct(_) | TArray(_) | TFunc(_))) {
 								v.field.kind = FVar(v.type.toComplexType(), e);
 							}
 						case _:
@@ -124,11 +124,11 @@ class Environment {
 							}
 							switch data.field.kind {
 								case FFun(func):
-									if (f.type.match(TStruct(_) | TArray(_))) {
+									if (f.type.match(TStruct(_) | TArray(_) | TFunc(_))) {
 										func.ret = f.type.toComplexType();
 									}
 									for (i => arg in func.args) {
-										if (f.args[i].type.match(TStruct(_) | TArray(_))) {
+										if (f.args[i].type.match(TStruct(_) | TArray(_) | TFunc(_))) {
 											arg.type = f.args[i].type.toComplexType();
 										}
 									}
