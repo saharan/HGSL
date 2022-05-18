@@ -699,12 +699,11 @@ class Builder {
 			}
 
 			// add uniform variables
-			if (module) {
-				fields.push(generateConstsField(env.getGlobalVars()
-					.filter(v -> v.kind.match(Global(Const(_))) && !v.type.match(TFunc(_)))));
-			} else {
-				fields.push(generateUniformsField(env.getGlobalVars().filter(v -> v.kind == Uniform)));
-				fields.push(generateAttributesField(env.getGlobalVars().filter(v -> v.kind.match(Attribute(_)))));
+			final globalVars = env.getGlobalVars();
+			fields.push(generateConstsField(globalVars.filter(v -> v.kind.match(Global(Const(_))) && !v.type.match(TFunc(_)))));
+			if (!module) {
+				fields.push(generateUniformsField(globalVars.filter(v -> v.kind == Uniform)));
+				fields.push(generateAttributesField(globalVars.filter(v -> v.kind.match(Attribute(_)))));
 			}
 
 			if (module) {
