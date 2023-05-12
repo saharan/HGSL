@@ -10,7 +10,7 @@ Everything is done at compile time, so you can use this library just to obtain G
 
 ## Getting started
 
-1. Install the latest [Haxe](https://haxe.org/) somewhere
+1. Install [Haxe](https://haxe.org/) 4.3.1 or later somewhere
 1. Install [vshaxe](https://github.com/vshaxe/vshaxe) in VSCode Marketplace and configure the Haxe path
 1. Create a Haxe project (`>Haxe: Initialize Project`)
 1. Copy `src/hgsl` to your source folder
@@ -476,7 +476,7 @@ class Module extends ShaderModule {
 }
 ```
 
-You can return local functions. When it is done, **a closure** will be generated.
+You can return a local function. When it is done, **a closure** will be generated.
 
 ```hx
 import hgsl.Global.*;
@@ -507,7 +507,7 @@ class Module extends ShaderModule {
 }
 ```
 
-You can use arrows to generate anonymous functions.
+You can use the arrow notation to generate an anonymous function.
 
 ```hx
 import hgsl.Global.*;
@@ -546,9 +546,9 @@ class Module extends ShaderModule {
 }
 ```
 
-### Obtain Sources
+### Obtain Shader Source
 
-You can obtain source codes of shaders using `vertexSource` and `fragmentSource` fields, or `vertex` and `fragment` fields inside `source` field. These fields can only be used from outside shaders.
+You can obtain source code of shaders using `vertexSource` and `fragmentSource` fields, or `vertex` and `fragment` fields inside `source` field. These fields can only be used from outside shaders.
 
 ```hx
 import hgsl.Global.*;
@@ -563,11 +563,11 @@ class Shader extends ShaderMain {
 
 class Main { // this is NOT a shader class; usual Haxe rules apply here
 	static function main() {
-		// print sources, or do whatever you need; these are just strings
+		// print the source, or do whatever you need; they are just strings
 		trace(Shader.vertexSource);
 		trace(Shader.fragmentSource);
 		
-		// extract sources out of the shader, this is convenient
+		// extract source out of the shader, this is convenient
 		//   when you have to treat multiple shaders
 		final source:Source = Shader.source;
 		trace(source.vertex);
@@ -608,7 +608,7 @@ class Main {
 }
 ```
 
-Note that those fields are **statically typed**, which means if you change the names of variables in the shader class and leave the main class as it is, there will be errors.
+Note that these fields are **statically typed**, which means if you change the names of variables in the shader class and leave the main class as it is, there will be errors.
 
 ```hx
 import hgsl.Global.*;
