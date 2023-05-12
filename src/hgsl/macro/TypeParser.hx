@@ -261,7 +261,7 @@ class TypeParser {
 						for (field in fields) {
 							final pos = field.pos;
 							switch field.kind {
-								case FVar(t, _):
+								case FVar(t, _) | FProp("default", "default", t, _):
 									if (t == null) {
 										addError("type must be specified", pos);
 									} else {

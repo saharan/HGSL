@@ -741,6 +741,16 @@ class Builder {
 						pos: fragment.pos
 					});
 				}
+
+				// parse all functions at least once to convert exprs
+				{
+					final parser = new Parser(localClass.module, localClass.name, structPool, VertexOrFragment);
+					for (f in parseList) {
+						if (!f.parsed)
+							parser.parseEntryPoint(env, f);
+					}
+				}
+
 				fields.push({
 					name: "source",
 					access: [APublic, AStatic, AFinal],

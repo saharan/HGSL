@@ -186,8 +186,8 @@ class Environment {
 		if (name.startsWith("gl_")) {
 			throw error("identifier must not start with \"gl_\"", pos);
 		}
-		if (definedByUser && name.startsWith("_hgsl_")) {
-			throw error("identifier must not start with \"_hgsl_\"", pos);
+		if (definedByUser && name.startsWith(RESERVED_PREFIX)) {
+			throw error("identifier must not start with \"" + RESERVED_PREFIX + "\"", pos);
 		}
 		if (name.contains("__")) {
 			throw error("identifier must not include \"__\"", pos);
@@ -232,8 +232,7 @@ class Environment {
 				for (f in scopes[0]) {
 					switch f {
 						case FVar(_.kind => Attribute(Specified(location2))):
-							if (location == location2)
-								throw error("multiple vertex attributes at the same location", pos);
+							if (location == location2) throw error("multiple vertex attributes at the same location", pos);
 						case _:
 					}
 				}
@@ -241,8 +240,7 @@ class Environment {
 				for (f in scopes[0]) {
 					switch f {
 						case FVar(_.kind => Color(Specified(location2))):
-							if (location == location2)
-								throw error("multiple output colors at the same location", pos);
+							if (location == location2) throw error("multiple output colors at the same location", pos);
 						case _:
 					}
 				}
@@ -259,8 +257,8 @@ class Environment {
 		return res;
 	}
 
-	public function defineFunc(name:String, definedByUser:Bool, type:GType, args:Array<GFuncArg>, region:GFuncRegion, expr:Expr,
-			field:Field, pos:Position):GFunc {
+	public function defineFunc(name:String, definedByUser:Bool, type:GType, args:Array<GFuncArg>, region:GFuncRegion, expr:Expr, field:Field,
+			pos:Position):GFunc {
 		checkIdentifier(name, definedByUser, pos);
 		if (scopes.length > 1)
 			throw error("function can only be defined at a global scope", pos);
@@ -277,7 +275,8 @@ class Environment {
 				field: field,
 				env: this
 			}),
-			pos: pos
+			pos: pos,
+			parsed: !definedByUser // treat as parsed if automatically generated
 		}
 		defineField(FFunc(res));
 		return res;
@@ -450,9 +449,9 @@ class Environment {
 	}
 
 	public function getGlobalFuncOfNameAndArgs(name:String, args:Array<GFuncArg>):Null<GFunc> {
-		return switch getGlobalFuncs().filter(f -> f.name == name && f.args.length == args.length && f.args.zip(args, (a1,
-				a2) -> a1.type.equals(a2.type))
-			.all()) {
+		return switch getGlobalFuncs().filter(f -> f.name == name
+			&& f.args.length == args.length
+			&& f.args.zip(args, (a1, a2) -> a1.type.equals(a2.type)).all()) {
 			case [f]:
 				f;
 			case []:

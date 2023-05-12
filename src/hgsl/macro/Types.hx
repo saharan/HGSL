@@ -296,7 +296,8 @@ typedef GFunc = GFuncBase & {
 	region:GFuncRegion,
 	generic:Bool,
 	kind:GFuncKind,
-	pos:Position
+	pos:Position,
+	parsed:Bool
 }
 
 enum GField {
@@ -308,6 +309,7 @@ enum GShaderKind {
 	Vertex;
 	Fragment;
 	Module;
+	VertexOrFragment; // used to parse unvisited functions in non-module shaders
 }
 
 enum CalleeType {

@@ -92,7 +92,8 @@ class Parser {
 				field: null,
 				env: null
 			}),
-			pos: null
+			pos: null,
+			parsed: false
 		}
 	}
 
@@ -114,7 +115,7 @@ class Parser {
 		final dummyFuncArgs = switch kind {
 			case Vertex | Fragment:
 				[];
-			case Module:
+			case Module | VertexOrFragment:
 				generateDummyFuncArgs(func);
 		}
 		parseFuncImpl(new FunctionToParse(func, dummyFuncArgs), func.pos, env);
@@ -295,6 +296,8 @@ class Parser {
 		}
 
 		parseExpr(data.expr, source, env, true, null, true);
+		target.parsed = true; // mark as parsed
+
 		final cvalue = currentlyParsingFunction.cvalue;
 		final ret = currentlyParsingFunction.ret;
 		if (ret == null) { // no return found
@@ -381,7 +384,7 @@ class Parser {
 					sources.push("precision highp " + type + ";");
 				}
 				sources.push("");
-			case Module:
+			case Module | VertexOrFragment:
 				throw "cannot generate module source";
 		}
 
@@ -425,7 +428,7 @@ class Parser {
 							sources.push(attrib + "out " + gvar.type.toGLSLTypeOfName(gvar.name, this) + ";");
 						case Fragment:
 							sources.push(attrib + "in " + gvar.type.toGLSLTypeOfName(gvar.name, this) + ";");
-						case Module:
+						case Module | VertexOrFragment:
 							throw ierror(macro "internal error");
 					}
 				case BuiltIn(_):
@@ -900,7 +903,7 @@ class Parser {
 										case BuiltIn(vkind):
 											if (v.name == s) {
 												switch ([kind, vkind]) {
-													case [Module, _] | [Vertex, VertexIn | VertexOut] |
+													case [Module | VertexOrFragment, _] | [Vertex, VertexIn | VertexOut] |
 														[Fragment, FragmentIn | FragmentOut]:
 													// ok
 													case [Fragment, _]:
@@ -1006,7 +1009,7 @@ class Parser {
 											true;
 										case Varying(_):
 											switch kind {
-												case Vertex:
+												case Vertex | VertexOrFragment:
 													true;
 												case Fragment:
 													false;
@@ -1579,7 +1582,8 @@ class Parser {
 						field: null,
 						env: env.copyLocalSnapshot()
 					}),
-					pos: pos
+					pos: pos,
+					parsed: false
 				}
 				switch kind {
 					case null | FAnonymous:

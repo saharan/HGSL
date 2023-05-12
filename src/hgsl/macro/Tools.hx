@@ -488,6 +488,8 @@ class Tools {
 				"=>";
 			case OpIn:
 				"in";
+			case OpNullCoal:
+				"??";
 		}
 	}
 
@@ -1002,7 +1004,8 @@ class Tools {
 							type: ret.toComplexType().toGType(pos),
 							args: [],
 							kind: BuiltInConstructor,
-							pos: pos
+							pos: pos,
+							parsed: false
 						}));
 					case _:
 						throw ierror(macro "internal error");
@@ -1046,7 +1049,8 @@ class Tools {
 									}
 								}),
 								kind: BuiltIn,
-								pos: pos
+								pos: pos,
+								parsed: false
 							}));
 						case _:
 					}
