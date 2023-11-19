@@ -4,8 +4,8 @@
 	"license": "MIT",
 	"tags": ["cross", "shader", "glsl"],
 	"description": "A shading language that can be compiled into GLSL ES 3.0.",
-	"version": "0.3.0",
+	"version": "0.4.0",
 	"classPath": "src/",
-	"releasenote": "- Haxe 4.3 support\n- bugfix: transformation of unused functions in a non-module shader\n- bugfix: wrong prefix detection\n- other small bugfixes",
+	"releasenote": "- added: fields `a.*`, `u.*`, `c.*` for the shortcut of `attributes.*.location`, `uniforms.*.name, `consts.*`, respectively.",
 	"contributors": ["saharan"]
 }

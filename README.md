@@ -576,7 +576,7 @@ class Main { // this is NOT a shader class; usual Haxe rules apply here
 }
 ```
 
-You can also access vertex attributes and uniforms through `attributes` and `uniforms` fields, respectively.
+You can also access vertex attributes and uniforms through `attributes` and `uniforms` fields, respectively. If you only want to access attribute locations or uniform names, you can also use `a` or `u` field, respectively.
 
 ```hx
 import hgsl.Global.*;
@@ -599,11 +599,13 @@ class Main {
 		trace(aPos.name);     // "aPos"
 		trace(aPos.type);     // Vec(4) in `AttributeType`
 		trace(aPos.location); // null, since no location is given
+		trace(Shader.a.aPos); // null, equals `aPos.location`
 		
 		// print uniform information
 		final transform:Uniform = Shader.uniform.transform;
-		trace(transform.name); // "transform"
-		trace(transform.type); // Mat(4, 4) in `UniformType`
+		trace(transform.name);     // "transform"
+		trace(transform.type);     // Mat(4, 4) in `UniformType`
+		trace(Shader.u.transform); // "transform", equals `transform.name`
 	}
 }
 ```
@@ -629,7 +631,7 @@ class Main {
 }
 ```
 
-Compile-time constants in a shader can be accessed from outside shaders ONLY through `consts` field.
+Compile-time constants in a shader can be accessed from outside shaders ONLY through `consts` or `c` field.
 
 ```hx
 import hgsl.Types;
@@ -653,7 +655,7 @@ class Main { // usual Haxe class
 		trace(Module.consts.SOME_CONST_ARRAY);
 		
 		// value of {x: StdTypes.Int, y: StdTypes.Int}
-		trace(Shader.consts.SOME_CONST_STRUCT);
+		trace(Shader.c.SOME_CONST_STRUCT);
 		
 		// DO NOT do this; you will obtain nothing
 		// trace(Module.SOME_CONST_INT);

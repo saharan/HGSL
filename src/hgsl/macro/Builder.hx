@@ -69,28 +69,32 @@ class Builder {
 					}),
 					pos: pos,
 					access: [APrivate],
-					meta: [{
-						name: ":op",
-						params: [switch [un.op, un.postFix] {
-							case [OpIncrement, false]:
-								macro ++A;
-							case [OpIncrement, true]:
-								macro A++;
-							case [OpDecrement, false]:
-								macro --A;
-							case [OpDecrement, true]:
-								macro A++;
-							case [OpNot, false]:
-								macro !A;
-							case [OpNeg, false]:
-								macro - A;
-							case [OpNegBits, false]:
-								macro ~A;
-							case _:
-								throw "internal error";
-						}],
-						pos: pos
-					}]
+					meta: [
+						{
+							name: ":op",
+							params: [
+								switch [un.op, un.postFix] {
+									case [OpIncrement, false]:
+										macro ++A;
+									case [OpIncrement, true]:
+										macro A++;
+									case [OpDecrement, false]:
+										macro --A;
+									case [OpDecrement, true]:
+										macro A++;
+									case [OpNot, false]:
+										macro !A;
+									case [OpNeg, false]:
+										macro - A;
+									case [OpNegBits, false]:
+										macro ~A;
+									case _:
+										throw "internal error";
+								}
+							],
+							pos: pos
+						}
+					]
 				});
 			}
 		}
@@ -104,57 +108,62 @@ class Builder {
 					fields.push({
 						name: "binop" + bin.op.getName().substr(2),
 						kind: FFun({
-							args: [{
-								name: "lhs",
-								type: lhs.toComplexType()
-							}, {
-								name: "rhs",
-								type: rhs.toComplexType()
-							}],
+							args: [
+								{
+									name: "lhs",
+									type: lhs.toComplexType()
+								},
+								{
+									name: "rhs",
+									type: rhs.toComplexType()
+								}
+							],
 							ret: ret.toComplexType()
 						}),
 						pos: pos,
 						access: [AOverload, APrivate, AStatic],
-						meta: [{
-							name: ":op",
-							params: [switch bin.op {
-								case OpAdd:
-									macro A + B;
-								case OpMult:
-									macro A * B;
-								case OpDiv:
-									macro A / B;
-								case OpSub:
-									macro A - B;
-								case OpGt:
-									macro A > B;
-								case OpGte:
-									macro A >= B;
-								case OpLt:
-									macro A < B;
-								case OpLte:
-									macro A <= B;
-								case OpAnd:
-									macro A & B;
-								case OpOr:
-									macro A | B;
-								case OpXor:
-									macro A ^ B;
-								case OpBoolAnd:
-									macro A && B;
-								case OpBoolOr:
-									macro A || B;
-								case OpShl:
-									macro A << B;
-								case OpShr:
-									macro A >> B;
-								case OpMod:
-									macro A % B;
-								case _:
-									throw "internal error";
-							}],
-							pos: pos
-						}]
+						meta: [
+							{
+								name: ":op",
+								params: [
+									switch bin.op {
+										case OpAdd:
+											macro A + B;
+										case OpMult:
+											macro A * B;
+										case OpDiv:
+											macro A / B;
+										case OpSub:
+											macro A - B;
+										case OpGt:
+											macro A > B;
+										case OpGte:
+											macro A >= B;
+										case OpLt:
+											macro A < B;
+										case OpLte:
+											macro A <= B;
+										case OpAnd:
+											macro A & B;
+										case OpOr:
+											macro A | B;
+										case OpXor:
+											macro A ^ B;
+										case OpBoolAnd: macro A && B;
+										case OpBoolOr: macro A || B;
+										case OpShl:
+											macro A << B;
+										case OpShr:
+											macro A >> B;
+										case OpMod:
+											macro A % B;
+										case _:
+											throw "internal error";
+									}
+								],
+								pos: pos
+							}
+						]
 					});
 				}
 			}
@@ -190,10 +199,12 @@ class Builder {
 				fields.push({
 					name: "set_" + name,
 					kind: FFun({
-						args: [{
-							name: "v",
-							type: retType
-						}],
+						args: [
+							{
+								name: "v",
+								type: retType
+							}
+						],
 						ret: retType,
 					}),
 					pos: pos,
@@ -360,10 +371,12 @@ class Builder {
 								ret: f.type.toComplexType()
 							}),
 							pos: f.pos,
-							meta: [{
-								name: ":noCompletion",
-								pos: f.pos
-							}]
+							meta: [
+								{
+									name: ":noCompletion",
+									pos: f.pos
+								}
+							]
 						});
 				}
 			}
@@ -595,8 +608,7 @@ class Builder {
 								env.deleteGlobalFunc(localSuperFunc);
 							} else {
 								if (supEnv.resolveField(name) != null)
-									throw error("without overriding, cannot define a function whose name is used in the parent shader",
-										pos);
+									throw error("without overriding, cannot define a function whose name is used in the parent shader", pos);
 							}
 
 							final func = env.defineFunc(name, true, type, args, region, f.expr, field, pos);
@@ -608,15 +620,13 @@ class Builder {
 										throw error("shader module cannot define a vertex entry point", pos);
 									if (args.length != 0)
 										throw error("vertex entry point cannot have arguments", pos);
-									if (type != TVoid)
-										throw error("return type of a vertex entry point must be Void", pos);
+									if (type != TVoid) throw error("return type of a vertex entry point must be Void", pos);
 								case "fragment":
 									if (module)
 										throw error("shader module cannot define a fragment entry point", pos);
 									if (args.length != 0)
 										throw error("fragment entry point cannot have arguments", pos);
-									if (type != TVoid)
-										throw error("return type of a fragment entry point must be Void", pos);
+									if (type != TVoid) throw error("return type of a fragment entry point must be Void", pos);
 							}
 							dummyFuncFields.push({
 								name: env.tweakFunctionName(name),
@@ -627,13 +637,16 @@ class Builder {
 									expr: f.expr
 								}),
 								pos: field.pos,
-								meta: [{
-									name: ":noCompletion",
-									pos: field.pos
-								}, {
-									name: ":deprecated",
-									pos: field.pos
-								}]
+								meta: [
+									{
+										name: ":noCompletion",
+										pos: field.pos
+									},
+									{
+										name: ":deprecated",
+										pos: field.pos
+									}
+								]
 							});
 							field.meta.push({
 								name: ":coreExpr",
@@ -700,10 +713,13 @@ class Builder {
 
 			// add uniform variables
 			final globalVars = env.getGlobalVars();
-			fields.push(generateConstsField(globalVars.filter(v -> v.kind.match(Global(Const(_))) && !v.type.match(TFunc(_)))));
+			for (f in generateConstsFields(globalVars.filter(v -> v.kind.match(Global(Const(_))) && !v.type.match(TFunc(_)))))
+				fields.push(f);
 			if (!module) {
-				fields.push(generateUniformsField(globalVars.filter(v -> v.kind == Uniform)));
-				fields.push(generateAttributesField(globalVars.filter(v -> v.kind.match(Attribute(_)))));
+				for (f in generateUniformsFields(globalVars.filter(v -> v.kind == Uniform)))
+					fields.push(f);
+				for (f in generateAttributesFields(globalVars.filter(v -> v.kind.match(Attribute(_)))))
+					fields.push(f);
 			}
 
 			if (module) {
@@ -916,7 +932,7 @@ class Builder {
 		}
 	}
 
-	static function generateUniformExpr(type:GType, path:Expr, pos:Position):Expr {
+	static function generateUniformExpr(type:GType, path:Expr, pos:Position, onlyName:Bool):Expr {
 		final uniform:ComplexType = TPath({
 			pack: BASE_PACK,
 			name: "Uniform"
@@ -933,7 +949,7 @@ class Builder {
 						{
 							expr: EObjectDecl(fields.map(f -> {
 								field: f.name,
-								expr: generateUniformExpr(f.type, macro path + $v{"." + f.name}, pos),
+								expr: generateUniformExpr(f.type, macro path + $v{"." + f.name}, pos, onlyName),
 								quotes: Unquoted
 							})),
 							pos: pos
@@ -941,49 +957,60 @@ class Builder {
 					}
 				}
 			case TArray(type, Resolved(count)):
-				macro new $uniformArrayType([for (i in 0...$v{count}) {
-					final path = $path + "[" + i + "]";
-					${generateUniformExpr(type, macro path, pos)}
-				}], $path, ${getUniformTypeExpr(type, pos)});
+				macro new $uniformArrayType([
+					for (i in 0...$v{count}) {
+						final path = $path + "[" + i + "]";
+						${generateUniformExpr(type, macro path, pos, onlyName)}
+					}
+				], $path, ${getUniformTypeExpr(type, pos)});
 			case TArray(_):
 				throw ierror(macro "array size must be resolved here");
 			case TVoid:
 				throw error("void cannot be used here", pos);
 			case _:
-				macro {
-					final obj:$uniform = {
-						name: $path,
-						type: ${getUniformTypeExpr(type, pos)}
+				if (onlyName) {
+					path;
+				} else {
+					macro {
+						final obj:$uniform = {
+							name: $path,
+							type: ${getUniformTypeExpr(type, pos)}
+						}
+						obj;
 					}
-					obj;
 				}
 		}
 	}
 
-	static function generateAttributeExpr(v:GVar):Expr {
+	static function generateAttributeExpr(v:GVar, onlyLocation:Bool):Expr {
 		final attributeType:ComplexType = TPath({
 			pack: BASE_PACK,
 			name: "Attribute"
 		});
-		return macro {
-			final obj:$attributeType = {
-				name: $v{v.name},
-				type: ${getAttributeTypeExpr(v.type, v.pos)},
-				location: ${
-					switch v.kind {
-						case Attribute(location):
-							switch location {
-								case Unspecified:
-									macro null;
-								case Specified(location):
-									macro $v{location};
-							}
-						case _:
-							throw ierror(macro "internal error");
+		final location = macro ${
+			switch v.kind {
+				case Attribute(location):
+					switch location {
+						case Unspecified:
+							macro null;
+						case Specified(location):
+							macro $v{location};
 					}
-				}
+				case _:
+					throw ierror(macro "internal error");
 			}
-			obj;
+		}
+		if (onlyLocation) {
+			return location;
+		} else {
+			return macro {
+				final obj:$attributeType = {
+					name: $v{v.name},
+					type: ${getAttributeTypeExpr(v.type, v.pos)},
+					location: $location
+				}
+				obj;
+			}
 		}
 	}
 
@@ -996,52 +1023,100 @@ class Builder {
 		}
 	}
 
-	static function generateConstsField(uniforms:Array<GVar>):Field {
-		return {
-			name: "consts",
-			access: [APublic, AStatic, AFinal],
-			kind: FVar(null, {
-				expr: EObjectDecl(uniforms.map(v -> {
-					field: v.name,
-					expr: replacePos(generateConstExpr(v), v.pos),
-					quotes: Unquoted
-				})),
+	static function generateConstsFields(uniforms:Array<GVar>):Array<Field> {
+		return [
+			{
+				name: "consts",
+				access: [APublic, AStatic, AFinal],
+				kind: FVar(null, {
+					expr: EObjectDecl(uniforms.map(v -> {
+						field: v.name,
+						expr: replacePos(generateConstExpr(v), v.pos),
+						quotes: Unquoted
+					})),
+					pos: Context.currentPos()
+				}),
 				pos: Context.currentPos()
-			}),
-			pos: Context.currentPos()
-		};
+			},
+			{
+				name: "c",
+				doc: "shortcut for `consts`",
+				access: [APublic, AStatic, AFinal],
+				kind: FVar(null, {
+					expr: EObjectDecl(uniforms.map(v -> {
+						field: v.name,
+						expr: replacePos(generateConstExpr(v), v.pos),
+						quotes: Unquoted
+					})),
+					pos: Context.currentPos()
+				}),
+				pos: Context.currentPos()
+			}
+		];
 	}
 
-	static function generateUniformsField(uniforms:Array<GVar>):Field {
-		return {
-			name: "uniforms",
-			access: [APublic, AStatic, AFinal],
-			kind: FVar(null, {
-				expr: EObjectDecl(uniforms.map(v -> {
-					field: v.name,
-					expr: replacePos(generateUniformExpr(v.type, macro $v{v.name}, v.pos), v.pos),
-					quotes: Unquoted
-				})),
+	static function generateUniformsFields(uniforms:Array<GVar>):Array<Field> {
+		return [
+			{
+				name: "uniforms",
+				access: [APublic, AStatic, AFinal],
+				kind: FVar(null, {
+					expr: EObjectDecl(uniforms.map(v -> {
+						field: v.name,
+						expr: replacePos(generateUniformExpr(v.type, macro $v{v.name}, v.pos, false), v.pos),
+						quotes: Unquoted
+					})),
+					pos: Context.currentPos()
+				}),
 				pos: Context.currentPos()
-			}),
-			pos: Context.currentPos()
-		};
+			},
+			{
+				name: "u",
+				doc: "shortcut for `uniforms.*.name`",
+				access: [APublic, AStatic, AFinal],
+				kind: FVar(null, {
+					expr: EObjectDecl(uniforms.map(v -> {
+						field: v.name,
+						expr: replacePos(generateUniformExpr(v.type, macro $v{v.name}, v.pos, true), v.pos),
+						quotes: Unquoted
+					})),
+					pos: Context.currentPos()
+				}),
+				pos: Context.currentPos()
+			}
+		];
 	}
 
-	static function generateAttributesField(attributes:Array<GVar>):Field {
-		return {
-			name: "attributes",
-			access: [APublic, AStatic, AFinal],
-			kind: FVar(null, {
-				expr: EObjectDecl(attributes.map(v -> {
-					field: v.name,
-					expr: replacePos(generateAttributeExpr(v), v.pos),
-					quotes: Unquoted
-				})),
+	static function generateAttributesFields(attributes:Array<GVar>):Array<Field> {
+		return [
+			{
+				name: "attributes",
+				access: [APublic, AStatic, AFinal],
+				kind: FVar(null, {
+					expr: EObjectDecl(attributes.map(v -> {
+						field: v.name,
+						expr: replacePos(generateAttributeExpr(v, false), v.pos),
+						quotes: Unquoted
+					})),
+					pos: Context.currentPos()
+				}),
 				pos: Context.currentPos()
-			}),
-			pos: Context.currentPos()
-		};
+			},
+			{
+				name: "a",
+				doc: "shortcut for `attributes.*.location`",
+				access: [APublic, AStatic, AFinal],
+				kind: FVar(null, {
+					expr: EObjectDecl(attributes.map(v -> {
+						field: v.name,
+						expr: replacePos(generateAttributeExpr(v, true), v.pos),
+						quotes: Unquoted
+					})),
+					pos: Context.currentPos()
+				}),
+				pos: Context.currentPos()
+			}
+		];
 	}
 
 	static final errorMap:Map<String, Bool> = [];
